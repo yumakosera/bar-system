@@ -3,132 +3,110 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>バー管理画面（本番仕様）</title>
+    <title>バー管理画面（認証付き）</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body {
-            font-family: sans-serif;
-            padding: 16px;
-            max-width: 480px;
-            margin: 0 auto;
-            background-color: #1e1e24; 
-            color: #f8f9fa;
-        }
-        h2 {
-            font-size: 20px;
-            text-align: center;
-            border-bottom: 1px solid #343a40;
-            padding-bottom: 12px;
-            margin-bottom: 20px;
-        }
-        /* 顧客選択プルダウン */
-        select {
-            width: 100%;
-            padding: 14px;
-            font-size: 16px;
-            margin-bottom: 20px;
-            border-radius: 6px;
-            background-color: #343a40;
-            color: white;
-            border: 1px solid #495057;
-        }
-        .info-card {
-            background-color: #2b2c34;
-            padding: 16px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        .info-row {
-            display: flex;
-            justify-content: space-between;
-            margin: 8px 0;
-            font-size: 16px;
-        }
-        .current-balance {
-            font-size: 20px;
-            font-weight: bold;
-            color: #fcc419; 
-        }
-        .section-title {
-            font-size: 14px;
-            color: #adb5bd;
-            margin: 20px 0 8px 0;
-            text-transform: uppercase;
-        }
-        button {
-            display: block;
-            width: 100%;
-            padding: 14px;
-            font-size: 16px;
-            font-weight: bold;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            margin-bottom: 10px;
-        }
+        body { font-family: sans-serif; padding: 16px; max-width: 480px; margin: 0 auto; background-color: #1e1e24; color: #f8f9fa; }
+        h2 { font-size: 20px; text-align: center; border-bottom: 1px solid #343a40; padding-bottom: 12px; margin-bottom: 20px; }
+        
+        /* ログインフォームのスタイル */
+        .login-container { background-color: #2b2c34; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); text-align: center; }
+        .login-input { width: 100%; padding: 12px; margin-bottom: 12px; border-radius: 6px; border: 1px solid #495057; background-color: #343a40; color: white; box-sizing: border-box; }
+        
+        /* 管理画面のメインコンテンツ（最初は非表示） */
+        #admin-content { display: none; }
+        
+        select { width: 100%; padding: 14px; font-size: 16px; margin-bottom: 20px; border-radius: 6px; background-color: #343a40; color: white; border: 1px solid #495057; }
+        .info-card { background-color: #2b2c34; padding: 16px; border-radius: 8px; margin-bottom: 20px; }
+        .info-row { display: flex; justify-content: space-between; margin: 8px 0; font-size: 16px; }
+        .current-balance { font-size: 20px; font-weight: bold; color: #fcc419; }
+        .section-title { font-size: 14px; color: #adb5bd; margin: 20px 0 8px 0; text-transform: uppercase; }
+        button { display: block; width: 100%; padding: 14px; font-size: 16px; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; margin-bottom: 10px; }
         button:active { opacity: 0.7; }
-        
         .btn-quick { background-color: #2b8a3e; color: white; }
-        .btn-return { background-color: #e67700; color: white; } /* 返却用オレンジ */
-        
+        .btn-return { background-color: #e67700; color: white; }
+        .btn-login { background-color: #1c7ed6; color: white; margin-bottom: 0; }
+        .btn-logout { background-color: #fa5252; color: white; padding: 8px; font-size: 14px; margin-top: 20px; }
         .flex-inputs { display: flex; gap: 10px; margin-bottom: 10px; }
-        input {
-            flex: 1;
-            padding: 12px;
-            font-size: 16px;
-            border-radius: 6px;
-            border: 1px solid #495057;
-            background-color: #343a40;
-            color: white;
-            text-align: center;
-        }
+        input { flex: 1; padding: 12px; font-size: 16px; border-radius: 6px; border: 1px solid #495057; background-color: #343a40; color: white; text-align: center; }
         .btn-custom { background-color: #495057; color: white; margin-bottom: 0; }
     </style>
 </head>
 <body>
 
-    <h2>BAR 管理コントロール</h2>
+    <div id="login-screen" class="login-container">
+        <h2>管理者ログイン</h2>
+        <input type="email" id="login-email" class="login-input" placeholder="メールアドレス">
+        <input type="password" id="login-password" class="login-input" placeholder="パスワード">
+        <button class="btn-login" onclick="handleSignIn()">ログイン</button>
+    </div>
 
-    <select id="customer-select" onchange="fetchCustomerInfo()">
-        <option value="">-- お客様を選択してください --</option>
-        <option value="loading">読み込み中...</option>
-    </select>
-
-    <div class="info-card">
-        <div class="info-row">
-            <span>現在の残高:</span>
-            <span><span id="customer-balance" class="current-balance">-</span> トークン</span>
+    <div id="admin-content">
+        <h2>BAR 管理コントロール</h2>
+        <select id="customer-select" onchange="fetchCustomerInfo()">
+            <option value="">-- お客様を選択してください --</option>
+        </select>
+        <div class="info-card">
+            <div class="info-row">
+                <span>現在の残高:</span>
+                <span><span id="customer-balance" class="current-balance">-</span> トークン</span>
+            </div>
         </div>
+        <div class="section-title">トークン一括追加（現金受領）</div>
+        <button class="btn-quick" onclick="quickAction(1, 1000)">1 トークン追加 （1,000円）</button>
+        <button class="btn-quick" onclick="quickAction(3, 3000)">3 トークン追加 （3,000円）</button>
+        <button class="btn-quick" onclick="quickAction(5, 5000)">5 トークン追加 （5,000円）</button>
+        <div class="section-title">注文間違えの返却・サービス</div>
+        <button class="btn-return" onclick="quickAction(1, 0)">1 トークン返却 （0円）</button>
+        <button class="btn-return" onclick="quickAction(2, 0)">2 トークン返却 （0円）</button>
+        <div class="section-title">カスタム数量指定</div>
+        <div class="flex-inputs">
+            <input type="number" id="custom-tokens" placeholder="個数">
+            <input type="number" id="custom-price" placeholder="金額（円）">
+        </div>
+        <button class="btn-custom" onclick="customAction()">指定した数量で追加・記録</button>
+        
+        <button class="btn-logout" onclick="handleSignOut()">ログアウト</button>
     </div>
-
-    <div class="section-title">トークン一括追加（現金受領）</div>
-    <button class="btn-quick" onclick="quickAction(1, 1000)">1 トークン追加 （1,000円）</button>
-    <button class="btn-quick" onclick="quickAction(3, 3000)">3 トークン追加 （3,000円）</button>
-    <button class="btn-quick" onclick="quickAction(5, 5000)">5 トークン追加 （5,000円）</button>
-
-    <div class="section-title">注文間違えの返却・サービス</div>
-    <button class="btn-return" onclick="quickAction(1, 0)">1 トークン返却 （0円）</button>
-    <button class="btn-return" onclick="quickAction(2, 0)">2 トークン返却 （0円）</button>
-
-    <div class="section-title">カスタム数量指定</div>
-    <div class="flex-inputs">
-        <input type="number" id="custom-tokens" placeholder="個数" min="-10" max="10">
-        <input type="number" id="custom-price" placeholder="金額（円）" step="100">
-    </div>
-    <button class="btn-custom" onclick="customAction()">指定した数量で追加・記録</button>
 
     <script>
         const supabaseUrl = 'https://sopgjigjqhtetmmmilpo.supabase.co';
         const supabaseKey = 'sb_publishable_j5J9WYL6xEue3WpLH50kQg_MumAICUP';
         const client = supabase.createClient(supabaseUrl, supabaseKey);
 
-        // ページを開いたときに顧客一覧を取得してプルダウンに入れる
-        async function loadCustomers() {
-            const { data, error } = await client.from('customers').select('id, name').order('created_at', { ascending: false });
-            const select = document.getElementById('customer-select');
-            select.innerHTML = '<option value="">-- お客様を選択してください --</option>'; // リセット
+        // ログイン状態の監視（Supabaseがログイン中か未ログインかを自動判定してくれます）
+        client.auth.onAuthStateChange((event, session) => {
+            if (session) {
+                // ログインしている場合：管理画面を表示し、ログイン画面を隠す
+                document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('admin-content').style.display = 'block';
+                loadCustomers(); // 顧客一覧を読み込む
+            } else {
+                // ログインしていない場合：管理画面を隠し、ログイン画面を表示
+                document.getElementById('login-screen').style.display = 'block';
+                document.getElementById('admin-content').style.display = 'none';
+            }
+        });
 
+        // ログイン処理の実行
+        async function handleSignIn() {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+
+            const { error } = await client.auth.signInWithPassword({ email, password });
+            if (error) alert('ログイン失敗: ' + error.message);
+        }
+
+        // ログアウト処理の実行
+        async function handleSignOut() {
+            await client.auth.signOut();
+        }
+
+        // --- 以下はこれまでの処理と全く同じです ---
+        async function loadCustomers() {
+            const { data } = await client.from('customers').select('id, name').order('created_at', { ascending: false });
+            const select = document.getElementById('customer-select');
+            select.innerHTML = '<option value="">-- お客様を選択してください --</option>';
             if (data) {
                 data.forEach(c => {
                     const option = document.createElement('option');
@@ -138,71 +116,40 @@
                 });
             }
         }
-
-        // プルダウンで選択したお客様の残高を取得
         async function fetchCustomerInfo() {
             const customerId = document.getElementById('customer-select').value;
-            if (!customerId) {
-                document.getElementById('customer-balance').innerText = '-';
-                return;
-            }
-
-            const { data, error } = await client.from('customers').select('token_balance').eq('id', customerId).single();
+            if (!customerId) { document.getElementById('customer-balance').innerText = '-'; return; }
+            const { data } = await client.from('customers').select('token_balance').eq('id', customerId).single();
             if (data) document.getElementById('customer-balance').innerText = data.token_balance;
         }
-
-        // 現在選択されているお客様IDを取得する（未選択ならアラート）
         function getSelectedCustomerId() {
             const id = document.getElementById('customer-select').value;
             if (!id) alert('先にお客様を選択してください。');
             return id;
         }
-
-        // トークン追加・返却処理（共通ロジック）
         async function executeAction(customerId, tokens, price) {
             const { data, error } = await client.rpc('add_tokens', {
                 p_customer_id: customerId,
                 p_tokens: parseInt(tokens),
                 p_price: parseInt(price)
             });
-
-            if (error) {
-                alert('エラー: ' + error.message);
-            } else {
-                alert('処理が完了しました！');
-                fetchCustomerInfo(); // 残高表示を更新
-            }
+            if (error) alert('エラー: ' + error.message);
+            else { alert('処理が完了しました！'); fetchCustomerInfo(); }
         }
-
-        // クイックボタンの処理
         function quickAction(tokens, price) {
-            const customerId = getSelectedCustomerId();
-            if (!customerId) return;
-
-            let msg = price === 0 
-                ? `【確認】トークンを ${tokens}個 返却・サービス付与しますか？`
-                : `【確認】現金 ${price}円を受領し、トークンを ${tokens}個 追加しますか？`;
-
+            const customerId = getSelectedCustomerId(); if (!customerId) return;
+            let msg = price === 0 ? `【確認】トークンを ${tokens}個 返却しますか？` : `【確認】現金 ${price}円を受領し、トークンを ${tokens}個 追加しますか？`;
             if (confirm(msg)) executeAction(customerId, tokens, price);
         }
-
-        // カスタム指定の処理
         function customAction() {
-            const customerId = getSelectedCustomerId();
-            if (!customerId) return;
-
+            const customerId = getSelectedCustomerId(); if (!customerId) return;
             const tokens = document.getElementById('custom-tokens').value || 0;
             const price = document.getElementById('custom-price').value || 0;
-            
             if (confirm(`【確認】トークン ${tokens}個、金額 ${price}円 で処理しますか？`)) {
                 executeAction(customerId, tokens, price);
-                document.getElementById('custom-tokens').value = '';
-                document.getElementById('custom-price').value = '';
+                document.getElementById('custom-tokens').value = ''; document.getElementById('custom-price').value = '';
             }
         }
-
-        // 初期実行
-        loadCustomers();
     </script>
 </body>
 </html>
