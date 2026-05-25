@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>モバイルオーダー（プロトタイプ）</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 16px;
+            max-width: 500px;
+            margin: 0 auto;
+            background-color: #f8f9fa;
+        }
+        h1 {
+            font-size: 24px;
+            text-align: center;
+            color: #212529;
+        }
+        /* 保有トークンと購入ボタンのエリア */
+        .balance-box {
+            text-align: center;
+            background-color: #ffffff;
+            padding: 16px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+        .balance-text {
+            font-size: 16px;
+            margin-bottom: 12px;
+        }
+        #balance {
+            font-size: 24px;
+            font-weight: bold;
+            color: #d9480f;
+        }
+        /* 追加トークン購入ボタン */
+        .buy-token-btn {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background-color: #2b8a3e; /* 安心感のある緑色 */
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(43, 138, 62, 0.3);
+        }
+        .buy-token-btn:hover {
+            background-color: #237032;
+        }
+
+        /* トークンごとの見出しデザイン */
+        .token-heading {
+            font-size: 18px;
+            margin: 24px 0 12px 0;
+            padding-bottom: 6px;
+            color: #495057;
+            border-bottom: 2px solid #e9ecef;
+            border-left: 5px solid #343a40;
+            padding-left: 8px;
+        }
+        
+        /* 【追加】メニューを2列にするためのグリッド設定 */
+        .menu-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr; /* 均等な2列 */
+            gap: 10px; /* ボタン同士の隙間 */
+        }
+
+        /* メニューボタンのデザイン（2列用に少し調整） */
+        .menu-btn {
+            width: 100%;
+            padding: 12px 8px;
+            font-size: 14px; /* 2列でも文字が収まるように少し小さく */
+            text-align: center; /* 中央揃えで見栄え良く */
+            background-color: #ffffff;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+            transition: background-color 0.2s;
+            word-break: break-word; /* 長い銘柄名で折り返す */
+        }
+        .menu-btn:hover {
+            background-color: #e9ecef;
+        }
+    </style>
+</head>
+<body>
+    <h1>ウイスキーメニュー</h1>
+    
+    <div class="balance-box">
+        <div class="balance-text">
+            現在の保有トークン: <span id="balance">読み込み中...</span>
+        </div>
+        <button class="buy-token-btn" onclick="requestTokenPurchase()">＋ 追加トークンを購入する</button>
+    </div>
+
+    <div id="menu-container">メニューを読み込み中...</div>
+
+    <script>
+        // Supabaseの初期化設定
+        const supabaseUrl = 'https://sopgjigjqhtetmmmilpo.supabase.co';
+        const supabaseKey = 'sb_publishable_j5J9WYL6xEue3WpLH50kQg_MumAICUP';
+        const client = supabase.createClient(supabaseUrl, supabaseKey);
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const customerId = urlParams.get('id');
+
+        if (!customerId) {
+            alert('顧客IDが指定されていません。専用のQRコードからアクセスしてください。');
+        }
+
+        // トークン残高の取得と表示
+        async function fetchBalance() {
+            const { data, error } = await client
+                .from('customers')
+                .select('token_balance')
+                .eq('id', customerId)
+                .single();
+            
+            if (data) document.getElementById('balance').innerText = data.token_balance;
+            if (error) console.error('残高取得エラー:', error);
+        }
+
+        // 【追加】トークン購入ボタンを押したときの処理
+        function requestTokenPurchase() {
+            alert('【トークンの追加購入】\nお支払いは「現金のみ」となります。\nカウンターのマスターにお声がけください！');        
+        }
+
+        // メニュー一覧の取得と「グループ化＋2列」表示
+        async function fetchMenu() {
+            const { data, error } = await client
+                .from('menu_items')
+                .select('*')
+                .order('token_cost', { ascending: true })
+                .order('item_name', { ascending: true });
+
+            if (error) {
+                document.getElementById('menu-container').innerText = 'メニューの読み込みに失敗しました。';
+                console.error('メニュー取得エラー:', error);
+                return;
+            }
+
+            const container = document.getElementById('menu-container');
+            container.innerHTML = ''; 
+
+            let currentTokenCost = null;
+            let currentGrid = null; // 現在の2列グリッドの箱
+
+            data.forEach(item => {
+                // トークン数が切り替わったタイミングの処理
+                if (item.token_cost !== currentTokenCost) {
+                    currentTokenCost = item.token_cost;
+
+                    // 見出しを作成
+                    const heading = document.createElement('div');
+                    heading.className = 'token-heading';
+                    heading.innerText = `${currentTokenCost} トークン 対象銘柄`;
+                    container.appendChild(heading);
+
+                    // 新しい「2列レイアウト用の箱（グリッド）」を作成
+                    currentGrid = document.createElement('div');
+                    currentGrid.className = 'menu-grid';
+                    container.appendChild(currentGrid);
+                }
+
+                // メニューボタンの生成
+                const btn = document.createElement('button');
+                btn.className = 'menu-btn';
+                btn.innerText = item.item_name; 
+                btn.onclick = () => orderItem(item.item_name, item.token_cost);
+                
+                // 大枠ではなく、現在作っている2列グリッドの箱の中に追加する
+                currentGrid.appendChild(btn);
+            });
+        }
+
+        // 注文処理
+        async function orderItem(itemName, cost) {
+            if (!confirm(`${itemName} を注文しますか？\n（消費: ${cost}トークン）`)) {
+                return; 
+            }
+
+            const { data, error } = await client.rpc('place_order', {
+                p_customer_id: customerId,
+                p_item_name: itemName,
+                p_cost: cost
+            });
+
+            if (error) {
+                alert('エラーが発生しました: ' + error.message);
+            } else {
+                alert(data); 
+            }
+            
+            fetchBalance(); 
+        }
+
+        // 初期実行
+        if (customerId) {
+            fetchBalance();
+            fetchMenu();
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>売上ダッシュボード</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 16px;
+            max-width: 500px;
+            margin: 0 auto;
+            background-color: #1e1e24; /* admin.htmlと同じダークモード */
+            color: #f8f9fa;
+        }
+        h2 {
+            font-size: 22px;
+            text-align: center;
+            border-bottom: 1px solid #343a40;
+            padding-bottom: 12px;
+            margin-bottom: 20px;
+        }
+        /* サマリー（総売上・客単価）のカード */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        .summary-card {
+            background-color: #2b2c34;
+            padding: 16px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+        .summary-title {
+            font-size: 13px;
+            color: #adb5bd;
+            margin-bottom: 8px;
+        }
+        .summary-value {
+            font-size: 22px;
+            font-weight: bold;
+            color: #fcc419; /* ゴールド */
+        }
+        
+        /* ランキングエリア */
+        .section-title {
+            font-size: 16px;
+            color: #adb5bd;
+            margin: 30px 0 12px 0;
+            text-transform: uppercase;
+        }
+        .ranking-list {
+            background-color: #2b2c34;
+            border-radius: 8px;
+            padding: 0 16px;
+        }
+        .ranking-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 16px 0;
+            border-bottom: 1px solid #343a40;
+            font-size: 16px;
+        }
+        .ranking-item:last-child {
+            border-bottom: none;
+        }
+        .rank-number {
+            color: #adb5bd;
+            margin-right: 12px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>売上ダッシュボード</h2>
+
+    <div class="summary-grid">
+        <div class="summary-card">
+            <div class="summary-title">累計 総売上</div>
+            <div class="summary-value"><span id="total-sales">0</span> 円</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-title">平均 客単価</div>
+            <div class="summary-value"><span id="avg-sales">0</span> 円</div>
+        </div>
+    </div>
+
+    <div class="section-title">🏆 累計利用額 ランキング</div>
+    <div class="ranking-list" id="ranking-container">
+        <div class="ranking-item">読み込み中...</div>
+    </div>
+
+    <script>
+        // Supabaseの初期化設定（ご自身のものに変更してください）
+        const supabaseUrl = 'https://sopgjigjqhtetmmmilpo.supabase.co';
+        const supabaseKey = 'sb_publishable_j5J9WYL6xEue3WpLH50kQg_MumAICUP';
+        const client = supabase.createClient(supabaseUrl, supabaseKey);
+
+        async function fetchDashboardData() {
+            // 1. 顧客データと売上データを両方取得する
+            const { data: customers, error: cError } = await client.from('customers').select('id, name');
+            const { data: sales, error: sError } = await client.from('sales').select('customer_id, amount_jpy');
+
+            if (cError || sError) {
+                alert('データの取得に失敗しました。');
+                return;
+            }
+
+            // 2. データの集計処理
+            let totalSales = 0;
+            let uniqueCustomers = new Set();
+            let customerSpending = {}; 
+
+            // お客様ごとの集計箱を準備
+            customers.forEach(c => {
+                customerSpending[c.id] = { name: c.name, total: 0 };
+            });
+
+            // 売上データを1件ずつ足し算していく
+            sales.forEach(s => {
+                totalSales += s.amount_jpy; // 総売上にプラス
+                uniqueCustomers.add(s.customer_id); // 支払いした人数をカウント
+
+                // お客様ごとの合計金額にプラス
+                if (customerSpending[s.customer_id]) {
+                    customerSpending[s.customer_id].total += s.amount_jpy;
+                }
+            });
+
+            // 客単価の計算（0人割りを防ぐ）
+            const count = uniqueCustomers.size;
+            const avgSales = count > 0 ? Math.floor(totalSales / count) : 0;
+
+            // 3. ランキングの並び替え（金額が多い順）
+            const ranking = Object.values(customerSpending)
+                .filter(c => c.total > 0) // 1円も使っていない人は除外
+                .sort((a, b) => b.total - a.total);
+
+            // 4. 画面（HTML）への反映
+            document.getElementById('total-sales').innerText = totalSales.toLocaleString();
+            document.getElementById('avg-sales').innerText = avgSales.toLocaleString();
+
+            const rankingContainer = document.getElementById('ranking-container');
+            rankingContainer.innerHTML = ''; // 「読み込み中」を消す
+
+            if (ranking.length === 0) {
+                rankingContainer.innerHTML = '<div class="ranking-item">まだ売上データがありません</div>';
+                return;
+            }
+
+            // ランキングをHTMLに追加
+            ranking.forEach((c, index) => {
+                const item = document.createElement('div');
+                item.className = 'ranking-item';
+                item.innerHTML = `
+                    <div>
+                        <span class="rank-number">${index + 1}</span>
+                        ${c.name} 様
+                    </div>
+                    <div>${c.total.toLocaleString()} 円</div>
+                `;
+                rankingContainer.appendChild(item);
+            });
+        }
+
+        // 画面を開いた瞬間に集計をスタート
+        fetchDashboardData();
+    </script>
+</body>
+</html>
