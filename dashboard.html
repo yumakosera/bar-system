@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>売上ダッシュボード</title>
+    <title>売上ダッシュボード（認証付き）</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body {
@@ -11,7 +11,7 @@
             padding: 16px;
             max-width: 500px;
             margin: 0 auto;
-            background-color: #1e1e24; /* admin.htmlと同じダークモード */
+            background-color: #1e1e24; /* 管理画面と同じダークモード */
             color: #f8f9fa;
         }
         h2 {
@@ -21,7 +21,45 @@
             padding-bottom: 12px;
             margin-bottom: 20px;
         }
-        /* サマリー（総売上・客単価）のカード */
+        
+        /* 【新設】ログインフォームのスタイル */
+        .login-container {
+            background-color: #2b2c34;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            text-align: center;
+            margin-top: 40px;
+        }
+        .login-input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 12px;
+            border-radius: 6px;
+            border: 1px solid #495057;
+            background-color: #343a40;
+            color: white;
+            box-sizing: border-box;
+        }
+        .btn-login {
+            display: block;
+            width: 100%;
+            padding: 14px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            background-color: #1c7ed6;
+            color: white;
+        }
+
+        /* 【新設】メインコンテンツ（最初は非表示にします） */
+        #dashboard-content {
+            display: none;
+        }
+        
+        /* サマリーのカード */
         .summary-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -43,7 +81,7 @@
         .summary-value {
             font-size: 22px;
             font-weight: bold;
-            color: #fcc419; /* ゴールド */
+            color: #fcc419;
         }
         
         /* ランキングエリア */
@@ -73,36 +111,87 @@
             margin-right: 12px;
             font-weight: bold;
         }
+        .btn-logout {
+            display: block;
+            width: 100%;
+            padding: 8px;
+            font-size: 14px;
+            background-color: #fa5252;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 20px;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
 
-    <h2>売上ダッシュボード</h2>
-
-    <div class="summary-grid">
-        <div class="summary-card">
-            <div class="summary-title">累計 総売上</div>
-            <div class="summary-value"><span id="total-sales">0</span> 円</div>
-        </div>
-        <div class="summary-card">
-            <div class="summary-title">平均 客単価</div>
-            <div class="summary-value"><span id="avg-sales">0</span> 円</div>
-        </div>
+    <div id="login-screen" class="login-container">
+        <h2>管理者ログイン</h2>
+        <input type="email" id="login-email" class="login-input" placeholder="メールアドレス">
+        <input type="password" id="login-password" class="login-input" placeholder="パスワード">
+        <button class="btn-login" onclick="handleSignIn()">ログイン</button>
     </div>
 
-    <div class="section-title">🏆 累計利用額 ランキング</div>
-    <div class="ranking-list" id="ranking-container">
-        <div class="ranking-item">読み込み中...</div>
+    <div id="dashboard-content">
+        <h2>売上ダッシュボード</h2>
+
+        <div class="summary-grid">
+            <div class="summary-card">
+                <div class="summary-title">累計 総売上</div>
+                <div class="summary-value"><span id="total-sales">0</span> 円</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-title">平均 客単価</div>
+                <div class="summary-value"><span id="avg-sales">0</span> 円</div>
+            </div>
+        </div>
+
+        <div class="section-title">🏆 累計利用額 ランキング</div>
+        <div class="ranking-list" id="ranking-container">
+            <div class="ranking-item">読み込み中...</div>
+        </div>
+        
+        <button class="btn-logout" onclick="handleSignOut()">ログアウト</button>
     </div>
 
     <script>
-        // Supabaseの初期化設定（ご自身のものに変更してください）
         const supabaseUrl = 'https://sopgjigjqhtetmmmilpo.supabase.co';
         const supabaseKey = 'sb_publishable_j5J9WYL6xEue3WpLH50kQg_MumAICUP';
         const client = supabase.createClient(supabaseUrl, supabaseKey);
 
+        // 【新機能】ログイン状態の監視（セッションの自動チェック）
+        client.auth.onAuthStateChange((event, session) => {
+            if (session) {
+                // ログインしている場合：売上を表示し、ログインフォームを隠す
+                document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('dashboard-content').style.display = 'block';
+                fetchDashboardData(); // データの集計を走らせる
+            } else {
+                // ログインしていない場合：売上を隠し、ログインフォームを表示
+                document.getElementById('login-screen').style.display = 'block';
+                document.getElementById('dashboard-content').style.display = 'none';
+            }
+        });
+
+        // ログイン処理の実行
+        async function handleSignIn() {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+
+            const { error } = await client.auth.signInWithPassword({ email, password });
+            if (error) alert('ログイン失敗: ' + error.message);
+        }
+
+        // ログアウト処理の実行
+        async function handleSignOut() {
+            await client.auth.signOut();
+        }
+
+        // 売上データの取得と計算（処理内容はこれまでと同様です）
         async function fetchDashboardData() {
-            // 1. 顧客データと売上データを両方取得する
             const { data: customers, error: cError } = await client.from('customers').select('id, name');
             const { data: sales, error: sError } = await client.from('sales').select('customer_id, amount_jpy');
 
@@ -111,49 +200,41 @@
                 return;
             }
 
-            // 2. データの集計処理
             let totalSales = 0;
             let uniqueCustomers = new Set();
             let customerSpending = {}; 
 
-            // お客様ごとの集計箱を準備
             customers.forEach(c => {
                 customerSpending[c.id] = { name: c.name, total: 0 };
             });
 
-            // 売上データを1件ずつ足し算していく
             sales.forEach(s => {
-                totalSales += s.amount_jpy; // 総売上にプラス
-                uniqueCustomers.add(s.customer_id); // 支払いした人数をカウント
+                totalSales += s.amount_jpy;
+                uniqueCustomers.add(s.customer_id);
 
-                // お客様ごとの合計金額にプラス
                 if (customerSpending[s.customer_id]) {
                     customerSpending[s.customer_id].total += s.amount_jpy;
                 }
             });
 
-            // 客単価の計算（0人割りを防ぐ）
             const count = uniqueCustomers.size;
             const avgSales = count > 0 ? Math.floor(totalSales / count) : 0;
 
-            // 3. ランキングの並び替え（金額が多い順）
             const ranking = Object.values(customerSpending)
-                .filter(c => c.total > 0) // 1円も使っていない人は除外
+                .filter(c => c.total > 0)
                 .sort((a, b) => b.total - a.total);
 
-            // 4. 画面（HTML）への反映
             document.getElementById('total-sales').innerText = totalSales.toLocaleString();
             document.getElementById('avg-sales').innerText = avgSales.toLocaleString();
 
             const rankingContainer = document.getElementById('ranking-container');
-            rankingContainer.innerHTML = ''; // 「読み込み中」を消す
+            rankingContainer.innerHTML = '';
 
             if (ranking.length === 0) {
                 rankingContainer.innerHTML = '<div class="ranking-item">まだ売上データがありません</div>';
                 return;
             }
 
-            // ランキングをHTMLに追加
             ranking.forEach((c, index) => {
                 const item = document.createElement('div');
                 item.className = 'ranking-item';
@@ -167,9 +248,6 @@
                 rankingContainer.appendChild(item);
             });
         }
-
-        // 画面を開いた瞬間に集計をスタート
-        fetchDashboardData();
     </script>
 </body>
 </html>
