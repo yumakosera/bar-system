@@ -3,127 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>売上ダッシュボード（認証付き）</title>
+    <title>売上ダッシュボード（時差補正版）</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body {
-            font-family: sans-serif;
-            padding: 16px;
-            max-width: 500px;
-            margin: 0 auto;
-            background-color: #1e1e24; /* 管理画面と同じダークモード */
-            color: #f8f9fa;
-        }
-        h2 {
-            font-size: 22px;
-            text-align: center;
-            border-bottom: 1px solid #343a40;
-            padding-bottom: 12px;
-            margin-bottom: 20px;
-        }
-        
-        /* 【新設】ログインフォームのスタイル */
-        .login-container {
-            background-color: #2b2c34;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            text-align: center;
-            margin-top: 40px;
-        }
-        .login-input {
-            width: 100%;
-            padding: 12px;
-            margin-bottom: 12px;
-            border-radius: 6px;
-            border: 1px solid #495057;
-            background-color: #343a40;
-            color: white;
-            box-sizing: border-box;
-        }
-        .btn-login {
-            display: block;
-            width: 100%;
-            padding: 14px;
-            font-size: 16px;
-            font-weight: bold;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            background-color: #1c7ed6;
-            color: white;
-        }
-
-        /* 【新設】メインコンテンツ（最初は非表示にします） */
-        #dashboard-content {
-            display: none;
-        }
-        
-        /* サマリーのカード */
-        .summary-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-bottom: 24px;
-        }
-        .summary-card {
-            background-color: #2b2c34;
-            padding: 16px;
-            border-radius: 8px;
-            text-align: center;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-        }
-        .summary-title {
-            font-size: 13px;
-            color: #adb5bd;
-            margin-bottom: 8px;
-        }
-        .summary-value {
-            font-size: 22px;
-            font-weight: bold;
-            color: #fcc419;
-        }
-        
-        /* ランキングエリア */
-        .section-title {
-            font-size: 16px;
-            color: #adb5bd;
-            margin: 30px 0 12px 0;
-            text-transform: uppercase;
-        }
-        .ranking-list {
-            background-color: #2b2c34;
-            border-radius: 8px;
-            padding: 0 16px;
-        }
-        .ranking-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 16px 0;
-            border-bottom: 1px solid #343a40;
-            font-size: 16px;
-        }
-        .ranking-item:last-child {
-            border-bottom: none;
-        }
-        .rank-number {
-            color: #adb5bd;
-            margin-right: 12px;
-            font-weight: bold;
-        }
-        .btn-logout {
-            display: block;
-            width: 100%;
-            padding: 8px;
-            font-size: 14px;
-            background-color: #fa5252;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            margin-top: 20px;
-            font-weight: bold;
-        }
+        body { font-family: sans-serif; padding: 16px; max-width: 500px; margin: 0 auto; background-color: #1e1e24; color: #f8f9fa; }
+        h2 { font-size: 22px; text-align: center; border-bottom: 1px solid #343a40; padding-bottom: 12px; margin-bottom: 20px; }
+        .date-filter-box { background-color: #2b2c34; padding: 14px; border-radius: 8px; margin-bottom: 20px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
+        .date-filter-box label { font-size: 14px; color: #adb5bd; margin-right: 10px; }
+        .date-input { padding: 8px; font-size: 16px; border-radius: 6px; border: 1px solid #495057; background-color: #343a40; color: white; text-align: center; }
+        .login-container { background-color: #2b2c34; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); text-align: center; margin-top: 40px; }
+        .login-input { width: 100%; padding: 12px; margin-bottom: 12px; border-radius: 6px; border: 1px solid #495057; background-color: #343a40; color: white; box-sizing: border-box; }
+        .btn-login { display: block; width: 100%; padding: 14px; font-size: 16px; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; background-color: #1c7ed6; color: white; }
+        #dashboard-content { display: none; }
+        .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
+        .summary-card { background-color: #2b2c34; padding: 16px; border-radius: 8px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
+        .summary-title { font-size: 13px; color: #adb5bd; margin-bottom: 8px; }
+        .summary-value { font-size: 22px; font-weight: bold; color: #fcc419; }
+        .section-title { font-size: 16px; color: #adb5bd; margin: 30px 0 12px 0; text-transform: uppercase; }
+        .ranking-list { background-color: #2b2c34; border-radius: 8px; padding: 0 16px; }
+        .ranking-item { display: flex; justify-content: space-between; padding: 16px 0; border-bottom: 1px solid #343a40; font-size: 16px; }
+        .ranking-item:last-child { border-bottom: none; }
+        .rank-number { color: #adb5bd; margin-right: 12px; font-weight: bold; }
+        .btn-logout { display: block; width: 100%; padding: 8px; font-size: 14px; background-color: #fa5252; color: white; border: none; border-radius: 6px; cursor: pointer; margin-top: 20px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -138,18 +39,23 @@
     <div id="dashboard-content">
         <h2>売上ダッシュボード</h2>
 
+        <div class="date-filter-box">
+            <label for="target-date">集計日を選択:</label>
+            <input type="date" id="target-date" class="date-input" onchange="fetchDashboardData()">
+        </div>
+
         <div class="summary-grid">
             <div class="summary-card">
-                <div class="summary-title">累計 総売上</div>
+                <div class="summary-title">選択日の 総売上</div>
                 <div class="summary-value"><span id="total-sales">0</span> 円</div>
             </div>
             <div class="summary-card">
-                <div class="summary-title">平均 客単価</div>
+                <div class="summary-title">選択日の 客単価</div>
                 <div class="summary-value"><span id="avg-sales">0</span> 円</div>
             </div>
         </div>
 
-        <div class="section-title">🏆 累計利用額 ランキング</div>
+        <div class="section-title">🏆 選択日の利用額 ランキング</div>
         <div class="ranking-list" id="ranking-container">
             <div class="ranking-item">読み込み中...</div>
         </div>
@@ -162,56 +68,66 @@
         const supabaseKey = 'sb_publishable_j5J9WYL6xEue3WpLH50kQg_MumAICUP';
         const client = supabase.createClient(supabaseUrl, supabaseKey);
 
-        // 【新機能】ログイン状態の監視（セッションの自動チェック）
+        function setTodayDate() {
+            const now = new Date();
+            const offset = now.getTimezoneOffset();
+            const localDate = new Date(now.getTime() - (offset * 60 * 1000));
+            const todayStr = localDate.toISOString().split('T')[0];
+            document.getElementById('target-date').value = todayStr;
+        }
+
         client.auth.onAuthStateChange((event, session) => {
             if (session) {
-                // ログインしている場合：売上を表示し、ログインフォームを隠す
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('dashboard-content').style.display = 'block';
-                fetchDashboardData(); // データの集計を走らせる
+                setTodayDate();
+                fetchDashboardData();
             } else {
-                // ログインしていない場合：売上を隠し、ログインフォームを表示
                 document.getElementById('login-screen').style.display = 'block';
                 document.getElementById('dashboard-content').style.display = 'none';
             }
         });
 
-        // ログイン処理の実行
         async function handleSignIn() {
             const email = document.getElementById('login-email').value;
             const password = document.getElementById('login-password').value;
-
             const { error } = await client.auth.signInWithPassword({ email, password });
             if (error) alert('ログイン失敗: ' + error.message);
         }
 
-        // ログアウト処理の実行
-        async function handleSignOut() {
-            await client.auth.signOut();
-        }
+        async function handleSignOut() { await client.auth.signOut(); }
 
-        // 売上データの取得と計算（処理内容はこれまでと同様です）
         async function fetchDashboardData() {
-            const { data: customers, error: cError } = await client.from('customers').select('id, name');
-            const { data: sales, error: sError } = await client.from('sales').select('customer_id, amount_jpy');
+            const selectedDate = document.getElementById('target-date').value;
+            if (!selectedDate) return;
 
-            if (cError || sError) {
-                alert('データの取得に失敗しました。');
-                return;
-            }
+            const { data: customers } = await client.from('customers').select('id, name');
+            
+            // 【変更点】時差の補正ロジック（日本時間の0:00と23:59を基準に、自動で世界標準時に変換する）
+            const startJST = new Date(`${selectedDate}T00:00:00+09:00`);
+            const endJST = new Date(`${selectedDate}T23:59:59+09:00`);
+
+            // ISO形式（アイエスオーけいしき / 世界共通の日時テキスト形式。末尾にZがつきます）に変換
+            const startUTC = startJST.toISOString();
+            const endUTC = endJST.toISOString();
+
+            // 補正した時間を使ってデータベースから売上を狙い撃ち
+            const { data: sales, error: sError } = await client.from('sales')
+                .select('customer_id, amount_jpy, created_at')
+                .gte('created_at', startUTC)
+                .lte('created_at', endUTC);
+
+            if (sError) { alert('データ取得失敗'); return; }
 
             let totalSales = 0;
             let uniqueCustomers = new Set();
             let customerSpending = {}; 
 
-            customers.forEach(c => {
-                customerSpending[c.id] = { name: c.name, total: 0 };
-            });
+            customers.forEach(c => { customerSpending[c.id] = { name: c.name, total: 0 }; });
 
             sales.forEach(s => {
                 totalSales += s.amount_jpy;
                 uniqueCustomers.add(s.customer_id);
-
                 if (customerSpending[s.customer_id]) {
                     customerSpending[s.customer_id].total += s.amount_jpy;
                 }
@@ -231,7 +147,7 @@
             rankingContainer.innerHTML = '';
 
             if (ranking.length === 0) {
-                rankingContainer.innerHTML = '<div class="ranking-item">まだ売上データがありません</div>';
+                rankingContainer.innerHTML = '<div class="ranking-item">この日の売上データはありません</div>';
                 return;
             }
 
@@ -239,10 +155,7 @@
                 const item = document.createElement('div');
                 item.className = 'ranking-item';
                 item.innerHTML = `
-                    <div>
-                        <span class="rank-number">${index + 1}</span>
-                        ${c.name} 様
-                    </div>
+                    <div><span class="rank-number">${index + 1}</span>${c.name}</div>
                     <div>${c.total.toLocaleString()} 円</div>
                 `;
                 rankingContainer.appendChild(item);
