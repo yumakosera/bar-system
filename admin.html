@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>バー管理画面（キャンセル対応版）</title>
+    <title>バー管理画面（1トークン500円設定版）</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        /* 既存のスタイルは省略せずそのまま残します */
         body { font-family: sans-serif; padding: 16px; max-width: 480px; margin: 0 auto; background-color: #1e1e24; color: #f8f9fa; }
         h2 { font-size: 20px; text-align: center; border-bottom: 1px solid #343a40; padding-bottom: 12px; margin-bottom: 20px; }
         .login-container { background-color: #2b2c34; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); text-align: center; }
@@ -19,8 +18,11 @@
         .section-title { font-size: 14px; color: #adb5bd; margin: 20px 0 8px 0; text-transform: uppercase; border-bottom: 1px solid #343a40; padding-bottom: 4px; }
         button { display: block; width: 100%; padding: 14px; font-size: 16px; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; margin-bottom: 10px; }
         button:active { opacity: 0.7; }
-        .btn-quick { background-color: #2b8a3e; color: white; }
-        .btn-return { background-color: #e67700; color: white; }
+        
+        .btn-quick { background-color: #2b8a3e; color: white; } 
+        .btn-return { background-color: #1c7ed6; color: white; } 
+        .btn-reduce { background-color: #f03e3e; color: white; }
+        
         .btn-login { background-color: #1c7ed6; color: white; margin-bottom: 0; }
         .btn-logout { background-color: #fa5252; color: white; padding: 8px; font-size: 14px; margin-top: 30px; }
         .flex-inputs { display: flex; gap: 10px; margin-bottom: 10px; }
@@ -37,16 +39,14 @@
         .order-table { font-weight: bold; font-size: 18px; margin-bottom: 4px; }
         .order-item { font-size: 16px; }
         .order-time { font-size: 12px; color: #ffc9c9; margin-top: 4px; }
-        
-        /* 【新設】オーダーモニターのボタンエリア */
         .order-actions { display: flex; flex-direction: column; gap: 8px; }
         .btn-serve { background-color: #ffffff; color: #d9480f; padding: 10px 16px; border-radius: 6px; font-size: 14px; margin-bottom: 0; }
         .btn-cancel { background-color: #495057; color: white; padding: 8px 16px; border-radius: 6px; font-size: 12px; margin-bottom: 0; }
-        
         #no-orders { text-align: center; color: #adb5bd; padding: 20px; font-size: 14px; }
     </style>
 </head>
 <body>
+
     <div id="login-screen" class="login-container">
         <h2>管理者ログイン</h2>
         <input type="email" id="login-email" class="login-input" placeholder="メールアドレス">
@@ -64,7 +64,7 @@
 
         <hr style="border-color: #343a40; margin: 24px 0;">
 
-        <div class="section-title">個別レジ操作</div>
+        <div class="section-title">個別レジ操作（現金受領）</div>
         <select id="customer-select" onchange="fetchCustomerInfo()">
             <option value="">-- お客様を選択してください --</option>
         </select>
@@ -74,11 +74,26 @@
                 <span><span id="customer-balance" class="current-balance">-</span> トークン</span>
             </div>
         </div>
-        <button class="btn-quick" onclick="quickAction(1, 1000)">1 トークン追加 （1,000円）</button>
-        <button class="btn-quick" onclick="quickAction(3, 3000)">3 トークン追加 （3,000円）</button>
-        <button class="btn-quick" onclick="quickAction(5, 5000)">5 トークン追加 （5,000円）</button>
-        <button class="btn-return" onclick="quickAction(1, 0)">1 トークン返却 （0円）</button>
         
+        <button class="btn-quick" onclick="quickAction(1, 500)">＋ 1 トークン追加 （500円受領）</button>
+        <button class="btn-quick" onclick="quickAction(2, 1000)">＋ 2 トークン追加 （1,000円受領）</button>
+        <button class="btn-quick" onclick="quickAction(6, 3000)">＋ 6 トークン追加 （3,000円受領）</button>
+        <button class="btn-quick" onclick="quickAction(10, 5000)">＋ 10 トークン追加 （5,000円受領）</button>
+        <button class="btn-return" onclick="quickAction(1, 0)">＋ 1 トークンおまけ （無料サービス）</button>
+
+        <div class="section-title">レジ操作の取消（売上＆トークン修正）</div>
+        <button class="btn-reduce" onclick="mistakeCorrectionAction(1, 500)">－ 1 トークン＆500円 取消</button>
+        <button class="btn-reduce" onclick="mistakeCorrectionAction(2, 1000)">－ 2 トークン＆1,000円 取消</button>
+        <button class="btn-reduce" onclick="mistakeCorrectionAction(6, 3000)">－ 6 トークン＆3,000円 取消</button>
+        <button class="btn-reduce" onclick="mistakeCorrectionAction(10, 5000)">－ 10 トークン＆5,000円 取消</button>
+        
+        <div class="section-title">カスタム数量指定</div>
+        <div class="flex-inputs">
+            <input type="number" id="custom-tokens" placeholder="個数 (マイナスも可)">
+            <input type="number" id="custom-price" placeholder="金額（円）">
+        </div>
+        <button class="btn-custom" onclick="customAction()">指定した数量で処理</button>
+
         <div class="section-title">メニュー在庫管理</div>
         <button class="btn-toggle-menu" onclick="toggleMenuArea()">在庫管理を開く / 閉じる</button>
         <div id="admin-menu-area" style="display: none; background-color: #2b2c34; padding: 16px; border-radius: 8px; margin-top: 10px;">
@@ -141,7 +156,6 @@
                 const timeString = date.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
                 const tableName = order.customers ? order.customers.name : '不明なテーブル';
 
-                // 【変更点】キャンセルボタンを追加
                 card.innerHTML = `
                     <div class="order-info">
                         <div class="order-table">${tableName}</div>
@@ -162,21 +176,13 @@
             if (!error) fetchOrders(); else alert('エラー: ' + error.message);
         }
 
-        // 【新機能】キャンセル処理を実行する関数
         async function executeCancelOrder(orderId, itemName) {
             if (!confirm(`「${itemName}」の注文を取り消し、トークンをお客様に返却しますか？`)) return;
-
             const { data, error } = await client.rpc('cancel_order', { p_order_id: orderId });
-            
-            if (error) {
-                alert('エラーが発生しました: ' + error.message);
-            } else {
-                fetchOrders(); // 成功したら画面を更新してリストから消す
-                fetchCustomerInfo(); // レジ画面の残高表示も更新
-            }
+            if (error) alert('エラーが発生しました: ' + error.message);
+            else { fetchOrders(); fetchCustomerInfo(); }
         }
 
-        /* 以下の既存ロジックは変更なし */
         async function loadCustomers() {
             const { data } = await client.from('customers').select('id, name').order('created_at', { ascending: false });
             const select = document.getElementById('customer-select');
@@ -196,24 +202,35 @@
             const id = document.getElementById('customer-select').value;
             if (!id) alert('先にお客様を選択してください。'); return id;
         }
+        
         async function executeAction(customerId, tokens, price) {
             const { data, error } = await client.rpc('add_tokens', { p_customer_id: customerId, p_tokens: parseInt(tokens), p_price: parseInt(price) });
-            if (error) alert('エラー: ' + error.message); else { alert('処理完了！'); fetchCustomerInfo(); }
+            if (error) alert('エラー: ' + error.message); else { fetchCustomerInfo(); }
         }
+        
         function quickAction(tokens, price) {
             const customerId = getSelectedCustomerId(); if (!customerId) return;
-            let msg = price === 0 ? `トークンを ${tokens}個 返却しますか？` : `現金 ${price}円を受領し、トークンを ${tokens}個 追加しますか？`;
+            let msg = price === 0 ? `トークンを ${tokens}個 【無料で追加】しますか？` : `現金 ${price}円を受領し、トークンを ${tokens}個 追加しますか？`;
             if (confirm(msg)) executeAction(customerId, tokens, price);
         }
+
+        function mistakeCorrectionAction(tokens, price) {
+            const customerId = getSelectedCustomerId(); if (!customerId) return;
+            if (confirm(`【売上修正】間違えて追加した\n「${tokens}トークン」と「売上 ${price}円」\nを両方ともマイナス（取消）しますか？`)) {
+                executeAction(customerId, -tokens, -price);
+            }
+        }
+
         function customAction() {
             const customerId = getSelectedCustomerId(); if (!customerId) return;
             const tokens = document.getElementById('custom-tokens').value || 0;
             const price = document.getElementById('custom-price').value || 0;
-            if (confirm(`トークン ${tokens}個、金額 ${price}円 で処理しますか？`)) {
+            if (confirm(`トークン ${tokens}個、金額 ${price}円 で処理しますか？\n（マイナスも可能です）`)) {
                 executeAction(customerId, tokens, price);
                 document.getElementById('custom-tokens').value = ''; document.getElementById('custom-price').value = '';
             }
         }
+
         let menuVisible = false;
         function toggleMenuArea() {
             menuVisible = !menuVisible;
