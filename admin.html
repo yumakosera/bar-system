@@ -8,10 +8,9 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
     
-    <title>バー管理画面（UI修正版）</title>
+    <title>バー管理画面（在庫リスト改善版）</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        /* bodyに overflow-x: hidden を追加し、画面の横揺れを完全にロック */
         body { font-family: sans-serif; padding: 16px; max-width: 480px; margin: 0 auto; background-color: #1e1e24; color: #f8f9fa; overflow-x: hidden; }
         h2 { font-size: 20px; text-align: center; border-bottom: 1px solid #343a40; padding-bottom: 12px; margin-bottom: 20px; }
         .login-container { background-color: #2b2c34; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); text-align: center; }
@@ -32,7 +31,6 @@
         .btn-login { background-color: #1c7ed6; color: white; margin-bottom: 0; }
         .btn-logout { background-color: #fa5252; color: white; padding: 8px; font-size: 14px; margin-top: 30px; }
         
-        /* 【修正】横はみ出しを防止する CSS の設定 */
         .flex-inputs { display: flex; gap: 10px; margin-bottom: 10px; width: 100%; box-sizing: border-box; }
         input { flex: 1; min-width: 0; padding: 12px; font-size: 16px; border-radius: 6px; border: 1px solid #495057; background-color: #343a40; color: white; text-align: center; box-sizing: border-box; }
         
@@ -42,6 +40,10 @@
         .btn-status { padding: 8px 12px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; color: white; font-size: 12px; width: 80px; text-align: center; margin-bottom: 0;}
         .btn-stock-on { background-color: #2b8a3e; }
         .btn-stock-off { background-color: #fa5252; }
+        
+        /* 【新設】在庫管理の大分類見出しスタイル */
+        .admin-category-heading { background-color: #343a40; color: #adb5bd; padding: 8px; font-size: 14px; margin: 16px 0 4px 0; border-radius: 4px; font-weight: bold; }
+        
         .order-card { background-color: #d9480f; color: white; padding: 12px; border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.2); animation: pulse 2s infinite; }
         @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(217, 72, 15, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(217, 72, 15, 0); } 100% { box-shadow: 0 0 0 0 rgba(217, 72, 15, 0); } }
         .order-info { flex: 1; }
@@ -246,19 +248,72 @@
             document.getElementById('admin-menu-area').style.display = menuVisible ? 'block' : 'none';
             if (menuVisible) fetchAdminMenu();
         }
+
+        // 【大幅改修】在庫管理リストの並び順をお客様画面（index.html）と同期
         async function fetchAdminMenu() {
-            const { data } = await client.from('menu_items').select('id, item_name, is_sold_out').order('category', { ascending: true }).order('item_name', { ascending: true });
-            const container = document.getElementById('admin-menu-list'); container.innerHTML = '';
+            // category データも一緒に取得するように変更
+            const { data, error } = await client.from('menu_items')
+                .select('id, item_name, category, is_sold_out')
+                .order('item_name', { ascending: true }); // ベースは名前順
+
+            const container = document.getElementById('admin-menu-list'); 
+            container.innerHTML = '';
+            if (error) return;
+
+            // 1. カテゴリごとにグループ分け
+            const groupedMenu = {};
             data.forEach(item => {
-                const div = document.createElement('div'); div.className = 'menu-mgmt-item';
-                const nameSpan = document.createElement('span'); nameSpan.innerText = item.item_name;
-                const btn = document.createElement('button');
-                btn.innerText = item.is_sold_out ? '🔴 売切' : '🟢 販売中';
-                btn.className = item.is_sold_out ? 'btn-status btn-stock-off' : 'btn-status btn-stock-on';
-                btn.onclick = () => toggleStock(item.id, item.item_name, item.is_sold_out);
-                div.appendChild(nameSpan); div.appendChild(btn); container.appendChild(div);
+                const cat = item.category || 'その他';
+                if (!groupedMenu[cat]) { groupedMenu[cat] = []; }
+                groupedMenu[cat].push(item);
+            });
+
+            // 2. お客様画面と同じ並び順ルール
+            const categoryOrder = [
+                "スコッチウイスキー",
+                "ジャパニーズウイスキー",
+                "アメリカンウイスキー",
+                "アイリッシュウイスキー",
+                "カナディアンウイスキー",
+                "台湾 ＆ ワールドブレンド",
+                "その他"
+            ];
+
+            // 3. ルールに従ってソート
+            const sortedCategories = Object.keys(groupedMenu).sort((a, b) => {
+                let indexA = categoryOrder.indexOf(a);
+                let indexB = categoryOrder.indexOf(b);
+                if (indexA === -1) indexA = 999;
+                if (indexB === -1) indexB = 999;
+                return indexA - indexB;
+            });
+
+            // 4. カテゴリ見出しを付けながら描画
+            sortedCategories.forEach(category => {
+                const catHeader = document.createElement('div');
+                catHeader.className = 'admin-category-heading';
+                catHeader.innerText = `🥃 ${category}`;
+                container.appendChild(catHeader);
+
+                groupedMenu[category].forEach(item => {
+                    const div = document.createElement('div'); 
+                    div.className = 'menu-mgmt-item';
+                    
+                    const nameSpan = document.createElement('span'); 
+                    nameSpan.innerText = item.item_name;
+                    
+                    const btn = document.createElement('button');
+                    btn.innerText = item.is_sold_out ? '🔴 売切' : '🟢 販売中';
+                    btn.className = item.is_sold_out ? 'btn-status btn-stock-off' : 'btn-status btn-stock-on';
+                    btn.onclick = () => toggleStock(item.id, item.item_name, item.is_sold_out);
+                    
+                    div.appendChild(nameSpan); 
+                    div.appendChild(btn); 
+                    container.appendChild(div);
+                });
             });
         }
+
         async function toggleStock(id, name, isSoldOut) {
             const newStatus = !isSoldOut;
             if (!confirm(newStatus ? `${name} を【売切】にしますか？` : `${name} を【販売中】に戻しますか？`)) return;
