@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>モバイルオーダー（メニュー整理版）</title>
+    <title>モバイルオーダー（プロ仕様ダイアログ版）</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { font-family: sans-serif; padding: 16px; max-width: 500px; margin: 0 auto; background-color: #f8f9fa; }
@@ -22,22 +22,31 @@
         .token-heading { font-size: 14px; margin: 12px 0 8px 0; color: #868e96; border-bottom: 1px dashed #ced4da; padding-bottom: 4px; font-weight: bold; }
         
         .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;}
-        
         .menu-btn { width: 100%; padding: 14px 8px; font-size: 13px; text-align: center; background-color: #ffffff; border: 1px solid #dee2e6; border-radius: 6px; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.02); transition: background-color 0.2s; word-break: break-word; position: relative; }
         .menu-btn:hover { background-color: #e9ecef; }
-        
         .menu-btn.sold-out { opacity: 0.65; pointer-events: none; background-color: #f1f3f5; border-color: #ced4da; padding-bottom: 24px; color: #868e96; }
         .menu-btn.sold-out::after { content: "SOLD OUT"; position: absolute; bottom: 6px; left: 0; width: 100%; text-align: center; color: #fa5252; font-weight: bold; font-size: 11px; letter-spacing: 1px; }
         
         .btn-checkout { display: block; width: 100%; padding: 12px; background-color: #fa5252; color: white; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 40px; box-shadow: 0 2px 4px rgba(250, 82, 82, 0.2); }
         
+        /* 履歴モーダル */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; }
         .modal-content { background-color: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 400px; max-height: 80vh; overflow-y: auto; }
-        .modal-title { font-size: 18px; font-weight: bold; margin-bottom: 16px; border-bottom: 1px solid #dee2e6; padding-bottom: 8px; }
+        .modal-title { font-size: 18px; font-weight: bold; margin-bottom: 16px; border-bottom: 1px solid #dee2e6; padding-bottom: 8px; text-align: center;}
         .history-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f1f3f5; font-size: 14px; }
         .history-item:last-child { border-bottom: none; }
         .history-time { color: #868e96; font-size: 12px; margin-right: 8px; }
         .btn-close-modal { width: 100%; padding: 10px; background-color: #343a40; color: white; border: none; border-radius: 6px; margin-top: 20px; font-weight: bold; cursor: pointer; }
+
+        /* 【新設】カスタム確認ダイアログ（alert/confirmの代わり） */
+        #custom-dialog-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
+        .dialog-box { background-color: white; padding: 24px; border-radius: 12px; width: 85%; max-width: 320px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); animation: popIn 0.2s ease-out; }
+        @keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .dialog-message { font-size: 16px; color: #212529; margin-bottom: 24px; white-space: pre-wrap; line-height: 1.5; font-weight: bold;}
+        .dialog-buttons { display: flex; gap: 10px; }
+        .dialog-btn { flex: 1; padding: 12px; font-size: 15px; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; }
+        .dialog-btn-cancel { background-color: #e9ecef; color: #495057; }
+        .dialog-btn-ok { background-color: #d9480f; color: white; }
     </style>
 </head>
 <body>
@@ -64,6 +73,16 @@
         </div>
     </div>
 
+    <div id="custom-dialog-overlay">
+        <div class="dialog-box">
+            <div id="dialog-message" class="dialog-message"></div>
+            <div class="dialog-buttons">
+                <button id="dialog-btn-cancel" class="dialog-btn dialog-btn-cancel">やめる</button>
+                <button id="dialog-btn-ok" class="dialog-btn dialog-btn-ok">OK</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const supabaseUrl = 'https://sopgjigjqhtetmmmilpo.supabase.co';
         const supabaseKey = 'sb_publishable_j5J9WYL6xEue3WpLH50kQg_MumAICUP';
@@ -72,35 +91,92 @@
         const urlParams = new URLSearchParams(window.location.search);
         const customerId = urlParams.get('id');
 
-        if (!customerId) { alert('顧客IDが指定されていません。'); }
+        if (!customerId) { showCustomAlert('顧客IDが指定されていません。'); }
+
+        // ==========================================
+        // 【新機能】オリジナルダイアログの制御システム
+        // ==========================================
+        function showCustomConfirm(message, onConfirm) {
+            const overlay = document.getElementById('custom-dialog-overlay');
+            const btnCancel = document.getElementById('dialog-btn-cancel');
+            const btnOk = document.getElementById('dialog-btn-ok');
+            
+            document.getElementById('dialog-message').innerText = message;
+            btnCancel.style.display = 'block'; // キャンセルボタンを表示
+            btnOk.innerText = '注文・確定する';
+
+            // 古いイベント（前回のボタンの記憶）を消す魔法
+            const newBtnCancel = btnCancel.cloneNode(true);
+            const newBtnOk = btnOk.cloneNode(true);
+            btnCancel.parentNode.replaceChild(newBtnCancel, btnCancel);
+            btnOk.parentNode.replaceChild(newBtnOk, btnOk);
+
+            newBtnCancel.onclick = () => { overlay.style.display = 'none'; };
+            newBtnOk.onclick = () => { overlay.style.display = 'none'; onConfirm(); };
+
+            overlay.style.display = 'flex';
+        }
+
+        function showCustomAlert(message) {
+            const overlay = document.getElementById('custom-dialog-overlay');
+            const btnCancel = document.getElementById('dialog-btn-cancel');
+            const btnOk = document.getElementById('dialog-btn-ok');
+            
+            document.getElementById('dialog-message').innerText = message;
+            btnCancel.style.display = 'none'; // Alertの時はキャンセルボタンを隠す
+            btnOk.innerText = '閉じる';
+
+            const newBtnOk = btnOk.cloneNode(true);
+            btnOk.parentNode.replaceChild(newBtnOk, btnOk);
+
+            newBtnOk.onclick = () => { overlay.style.display = 'none'; };
+
+            overlay.style.display = 'flex';
+        }
+
+        // ==========================================
+        // 以降の処理（nativeのalert/confirmをすべて置き換え）
+        // ==========================================
 
         async function fetchBalance() {
             const { data } = await client.from('customers').select('token_balance').eq('id', customerId).single();
             if (data) document.getElementById('balance').innerText = data.token_balance;
         }
 
-        async function requestTokenPurchase() {
-            if (!confirm('マスターをテーブルに呼び出し、トークンを追加購入（現金払い）しますか？')) return;
-            const { error } = await client.rpc('place_order', { p_customer_id: customerId, p_item_name: '💰 トークン追加購入（現金）', p_cost: 0 });
-            if (error) alert('エラー: ' + error.message);
-            else alert('マスターを呼び出しました。現金をご準備の上、少々お待ちください。');
+        function requestTokenPurchase() {
+            showCustomConfirm('マスターをテーブルに呼び出し、トークンを追加購入（現金払い）しますか？', async () => {
+                const { error } = await client.rpc('place_order', { p_customer_id: customerId, p_item_name: '💰 トークン追加購入（現金）', p_cost: 0 });
+                if (error) showCustomAlert('エラー: ' + error.message);
+                else showCustomAlert('マスターを呼び出しました。\n現金をご準備の上、少々お待ちください。');
+            });
         }
 
-        async function callMaster() {
-            if (!confirm('マスターをテーブルに呼び出しますか？')) return;
-            const { error } = await client.rpc('place_order', { p_customer_id: customerId, p_item_name: '🔔 呼び出し（お水・追加等）', p_cost: 0 });
-            if (error) alert('エラー: ' + error.message);
-            else alert('マスターを呼び出しました。少々お待ちください。');
+        function callMaster() {
+            showCustomConfirm('マスターをテーブルに呼び出しますか？', async () => {
+                const { error } = await client.rpc('place_order', { p_customer_id: customerId, p_item_name: '🔔 呼び出し（お水・追加等）', p_cost: 0 });
+                if (error) showCustomAlert('エラー: ' + error.message);
+                else showCustomAlert('マスターを呼び出しました。\n少々お待ちください。');
+            });
         }
 
         function openHistoryModal() { document.getElementById('history-modal').style.display = 'flex'; fetchHistory(); }
         function closeHistoryModal() { document.getElementById('history-modal').style.display = 'none'; }
 
         async function fetchHistory() {
-            const { data, error } = await client.from('order_history').select('item_name, token_cost, created_at').eq('customer_id', customerId).order('created_at', { ascending: false });
+            // 【改修】「過去12時間以内」の注文だけを取得するように変更（バーの夜間営業対応）
+            const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+
+            const { data, error } = await client.from('order_history')
+                .select('item_name, token_cost, created_at')
+                .eq('customer_id', customerId)
+                .gte('created_at', twelveHoursAgo) // ここが過去12時間フィルター
+                .order('created_at', { ascending: false });
+                
             const listContainer = document.getElementById('history-list'); listContainer.innerHTML = '';
+            
             if (error) { listContainer.innerHTML = '読み込みエラー'; return; }
-            if (data.length === 0) { listContainer.innerHTML = 'まだご注文はありません。'; return; }
+            if (data.length === 0) { listContainer.innerHTML = '<div style="text-align:center; color:#868e96; margin-top:20px;">まだご注文はありません。</div>'; return; }
+            
             data.forEach(order => {
                 const itemDiv = document.createElement('div'); itemDiv.className = 'history-item';
                 const date = new Date(order.created_at);
@@ -110,11 +186,12 @@
             });
         }
 
-        async function handleCheckout() {
-            if (!confirm('お席を終えて、お会計（退店）の準備をしますか？\n※マスターがテーブルへお伺いします。')) return;
-            const { error } = await client.rpc('place_order', { p_customer_id: customerId, p_item_name: '💳 お会計・退店のお願い', p_cost: 0 });
-            if (error) alert('エラー: ' + error.message);
-            else alert('マスターにお会計を通知しました。そのままお待ちください。');
+        function handleCheckout() {
+            showCustomConfirm('お席を終えて、お会計（退店）の準備をしますか？\n\n※マスターがテーブルへお伺いします。', async () => {
+                const { error } = await client.rpc('place_order', { p_customer_id: customerId, p_item_name: '💳 お会計・退店のお願い', p_cost: 0 });
+                if (error) showCustomAlert('エラー: ' + error.message);
+                else showCustomAlert('マスターにお会計を通知しました。\nそのままお待ちください。');
+            });
         }
 
         async function fetchMenu() {
@@ -165,10 +242,9 @@
 
                 const subCats = groupedMenu[category];
                 
-                // 【微調整】「その他」という文字が含まれていたら一番下に下げる（かっこが無くても判定できるように変更）
                 const sortedSubCats = Object.keys(subCats).sort((a, b) => {
                     const aIsOthers = a.includes('その他');
-                    const bIsOthers = b.includes('老化'); // 「その他」判定のブレ防止
+                    const bIsOthers = b.includes('老化');
                     const aCheck = aIsOthers || a.includes('その他');
                     const bCheck = bIsOthers || b.includes('その他');
                     if (aCheck && !bCheck) return 1;
@@ -208,6 +284,7 @@
                         btn.innerText = item.item_name; 
                         
                         if (!isSoldOut) {
+                            // 【変更】ネイティブのconfirmをオリジナルダイアログに変更
                             btn.onclick = () => orderItem(item.item_name, cost);
                         }
                         
@@ -217,12 +294,13 @@
             });
         }
 
-        async function orderItem(itemName, cost) {
-            if (!confirm(`${itemName} を注文しますか？\n（消費: ${cost}トークン）`)) return;
-            const { data, error } = await client.rpc('place_order', { p_customer_id: customerId, p_item_name: itemName, p_cost: cost });
-            if (error) { alert('エラー: ' + error.message); } 
-            else { alert(data); }
-            fetchBalance(); 
+        function orderItem(itemName, cost) {
+            showCustomConfirm(`【${itemName}】\nを注文しますか？\n\n（消費: ${cost}トークン）`, async () => {
+                const { data, error } = await client.rpc('place_order', { p_customer_id: customerId, p_item_name: itemName, p_cost: cost });
+                if (error) { showCustomAlert('エラー: ' + error.message); } 
+                else { showCustomAlert(data); }
+                fetchBalance(); 
+            });
         }
 
         if (customerId) { fetchBalance(); fetchMenu(); }
