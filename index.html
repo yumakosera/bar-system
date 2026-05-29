@@ -6,73 +6,141 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>モバイルオーダー（プロ仕様ダイアログ版）</title>
+    <title>Silent-Cask モバイルオーダー</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { font-family: sans-serif; padding: 16px; max-width: 500px; margin: 0 auto; background-color: #f8f9fa; }
-        h1 { font-size: 24px; text-align: center; color: #212529; }
-        .balance-box { text-align: center; background-color: #ffffff; padding: 16px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px; }
-        .balance-text { font-size: 16px; margin-bottom: 12px; }
-        #balance { font-size: 24px; font-weight: bold; color: #d9480f; }
-        .action-buttons { display: flex; gap: 10px; margin-bottom: 20px; }
-        .btn-action { flex: 1; padding: 12px; font-size: 14px; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .btn-add-token { background-color: #2b8a3e; color: white; }
-        .btn-call-master { background-color: #495057; color: white; }
-        .btn-history { background-color: #1c7ed6; color: white; margin-bottom: 20px; width: 100%; display: block;}
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; padding: 0 16px 16px 16px; max-width: 500px; margin: 0 auto; background-color: #121212; color: #e0e0e0; -webkit-touch-callout: none; user-select: none; }
+        h1 { font-size: 22px; text-align: center; color: #d4af37; margin-top: 30px; letter-spacing: 2px; font-weight: normal; }
+        .lang-toggle-btn { position: absolute; top: 16px; right: 16px; background: transparent; border: 1px solid #d4af37; color: #d4af37; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; }
+        .balance-box { text-align: center; background-color: #1e1e1e; padding: 16px; border-radius: 8px; border: 1px solid #333; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        .balance-text { font-size: 14px; margin-bottom: 12px; color: #aaa; }
+        #balance { font-size: 26px; font-weight: bold; color: #d4af37; }
+        .action-buttons { display: flex; gap: 10px; margin-bottom: 16px; }
+        .btn-action { flex: 1; padding: 12px; font-size: 13px; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; transition: background-color 0.2s; }
+        .btn-add-token { background-color: #2b4c3e; color: #a3e4d7; border: 1px solid #1e8449; }
+        .btn-call-master { background-color: #333; color: #fff; border: 1px solid #555; }
+        .btn-history { background-color: #2c3e50; color: #aed6f1; border: 1px solid #2980b9; margin-bottom: 5px; width: 100%; display: block;}
         
-        .category-heading { font-size: 18px; color: #fff; background-color: #343a40; padding: 10px; border-radius: 6px; margin: 30px 0 10px 0; text-align: center; font-weight: bold; }
-        .sub-category-heading { font-size: 16px; color: #495057; margin: 20px 0 10px 0; padding-left: 8px; border-left: 4px solid #adb5bd; font-weight: bold; display: flex; align-items: center; }
-        .token-heading { font-size: 14px; margin: 12px 0 8px 0; color: #868e96; border-bottom: 1px dashed #ced4da; padding-bottom: 4px; font-weight: bold; }
+        #category-nav { position: sticky; top: 0; background: rgba(18, 18, 18, 0.95); padding: 12px 0; z-index: 100; display: flex; overflow-x: auto; gap: 8px; border-bottom: 1px solid #333; backdrop-filter: blur(5px); margin: 0 -16px; padding-left: 16px; padding-right: 16px; }
+        #category-nav::-webkit-scrollbar { display: none; }
+        .nav-btn { background: #2a2a2a; color: #bbb; border: 1px solid #444; border-radius: 20px; padding: 6px 14px; font-size: 12px; white-space: nowrap; cursor: pointer; font-weight: bold; }
+        
+        .category-heading { font-size: 16px; color: #121212; background-color: #d4af37; padding: 8px 12px; border-radius: 4px; margin: 30px 0 15px 0; font-weight: bold; letter-spacing: 1px; }
+        .sub-category-heading { font-size: 15px; color: #e0e0e0; margin: 20px 0 10px 0; padding-left: 8px; border-left: 3px solid #d4af37; font-weight: bold; display: flex; align-items: center; }
+        .token-heading { font-size: 13px; margin: 12px 0 8px 0; color: #888; border-bottom: 1px dashed #444; padding-bottom: 4px; }
         
         .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;}
-        .menu-btn { width: 100%; padding: 14px 8px; font-size: 13px; text-align: center; background-color: #ffffff; border: 1px solid #dee2e6; border-radius: 6px; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.02); transition: background-color 0.2s; word-break: break-word; position: relative; }
-        .menu-btn:hover { background-color: #e9ecef; }
-        .menu-btn.sold-out { opacity: 0.65; pointer-events: none; background-color: #f1f3f5; border-color: #ced4da; padding-bottom: 24px; color: #868e96; }
-        .menu-btn.sold-out::after { content: "SOLD OUT"; position: absolute; bottom: 6px; left: 0; width: 100%; text-align: center; color: #fa5252; font-weight: bold; font-size: 11px; letter-spacing: 1px; }
+        .menu-btn { width: 100%; padding: 14px 8px; font-size: 13px; text-align: center; background-color: #1e1e1e; color: #e0e0e0; border: 1px solid #333; border-radius: 6px; cursor: pointer; position: relative; touch-action: manipulation; }
+        .menu-btn:disabled { opacity: 0.6; pointer-events: none; }
         
-        .btn-checkout { display: block; width: 100%; padding: 12px; background-color: #fa5252; color: white; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 40px; box-shadow: 0 2px 4px rgba(250, 82, 82, 0.2); }
+        .menu-btn.sold-out { opacity: 0.4; background-color: #121212; padding-bottom: 24px; color: #666; pointer-events: none; }
+        .menu-btn.sold-out::after { content: "SOLD OUT"; position: absolute; bottom: 6px; left: 0; width: 100%; text-align: center; color: #c0392b; font-weight: bold; font-size: 11px; letter-spacing: 1px; }
         
-        /* 履歴モーダル */
-        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; }
-        .modal-content { background-color: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 400px; max-height: 80vh; overflow-y: auto; }
-        .modal-title { font-size: 18px; font-weight: bold; margin-bottom: 16px; border-bottom: 1px solid #dee2e6; padding-bottom: 8px; text-align: center;}
-        .history-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f1f3f5; font-size: 14px; }
-        .history-item:last-child { border-bottom: none; }
-        .history-time { color: #868e96; font-size: 12px; margin-right: 8px; }
-        .btn-close-modal { width: 100%; padding: 10px; background-color: #343a40; color: white; border: none; border-radius: 6px; margin-top: 20px; font-weight: bold; cursor: pointer; }
+        .menu-btn.recommended { padding-bottom: 24px; }
+        .menu-btn.recommended::after { content: "おすすめ"; position: absolute; bottom: 6px; left: 0; width: 100%; text-align: center; color: #d4af37; font-weight: bold; font-size: 11px; letter-spacing: 1px; }
 
-        /* 【新設】カスタム確認ダイアログ（alert/confirmの代わり） */
-        #custom-dialog-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
-        .dialog-box { background-color: white; padding: 24px; border-radius: 12px; width: 85%; max-width: 320px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); animation: popIn 0.2s ease-out; }
+        .highlight-item { border: 1px solid #d4af37; box-shadow: 0 0 8px rgba(212, 175, 55, 0.3); }
+
+        .btn-checkout { display: block; width: 100%; padding: 14px; background-color: transparent; color: #e74c3c; border: 1px solid #e74c3c; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-top: 40px; margin-bottom: 30px; }
+        
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
+        .modal-content { background-color: #1e1e1e; padding: 20px; border-radius: 8px; width: 90%; max-width: 400px; max-height: 80vh; overflow-y: auto; border: 1px solid #333; }
+        .modal-title { font-size: 16px; font-weight: bold; margin-bottom: 16px; border-bottom: 1px solid #444; padding-bottom: 8px; text-align: center; color: #d4af37; }
+        .history-item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #2a2a2a; font-size: 14px; color: #ddd; }
+        .btn-close-modal { width: 100%; padding: 12px; background-color: #333; color: white; border: none; border-radius: 6px; margin-top: 20px; font-weight: bold; cursor: pointer; }
+        
+        .tasting-desc { font-size: 14px; line-height: 1.6; color: #ccc; margin-bottom: 20px; white-space: pre-wrap; }
+        .note-link { color: #d4af37; cursor: pointer; border-bottom: 1px dashed #d4af37; padding-bottom: 2px; }
+
+        #tasting-modal { z-index: 1100; /* 履歴画面より手前に表示するための修正 */ }
+
+        #custom-dialog-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+        .dialog-box { background-color: #1e1e1e; padding: 24px; border-radius: 12px; width: 85%; max-width: 320px; text-align: center; border: 1px solid #444; animation: popIn 0.2s ease-out; }
         @keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-        .dialog-message { font-size: 16px; color: #212529; margin-bottom: 24px; white-space: pre-wrap; line-height: 1.5; font-weight: bold;}
+        .dialog-message { font-size: 15px; color: #e0e0e0; margin-bottom: 24px; white-space: pre-wrap; line-height: 1.6; font-weight: bold;}
         .dialog-buttons { display: flex; gap: 10px; }
-        .dialog-btn { flex: 1; padding: 12px; font-size: 15px; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; }
-        .dialog-btn-cancel { background-color: #e9ecef; color: #495057; }
-        .dialog-btn-ok { background-color: #d9480f; color: white; }
+        .dialog-btn { flex: 1; padding: 12px; font-size: 14px; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; }
+        .dialog-btn-cancel { background-color: #333; color: #ccc; }
+        .dialog-btn-ok { background-color: #d4af37; color: #121212; }
+        
+        #toast-container { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 10px; z-index: 3000; pointer-events: none; width: 90%; max-width: 400px;}
+        .toast { background: rgba(212, 175, 55, 0.95); color: #121212; padding: 14px 20px; border-radius: 8px; font-weight: bold; font-size: 14px; text-align: center; animation: toastFadeIn 0.3s, toastFadeOut 0.4s 2.6s forwards; backdrop-filter: blur(4px); }
+        @keyframes toastFadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes toastFadeOut { from { opacity: 1; } to { opacity: 0; } }
+        
+        .call-options { display: flex; flex-direction: column; gap: 10px; }
     </style>
 </head>
 <body>
-    <h1>ウイスキーメニュー</h1>
+    <button class="lang-toggle-btn" onclick="toggleLanguage()">EN</button>
+    <div id="category-nav"></div>
+    <h1>Silent-Cask</h1>
     
     <div class="balance-box">
-        <div class="balance-text">現在の保有トークン: <span id="balance">読み込み中...</span></div>
+        <div class="balance-text" id="lbl-balance">現在の保有トークン</div>
+        <div id="balance">読み込み中...</div>
+        <div style="margin-top: 16px;"></div>
         <div class="action-buttons">
-            <button class="btn-action btn-add-token" onclick="requestTokenPurchase()">＋ トークン追加</button>
-            <button class="btn-action btn-call-master" onclick="callMaster()">🔔 マスターを呼ぶ</button>
+            <button class="btn-action btn-add-token" id="btn-add" onclick="requestTokenPurchase()">＋ トークン追加</button>
+            <button class="btn-action btn-call-master" id="btn-call" onclick="openCallModal()">🔔 マスターを呼ぶ</button>
         </div>
-        <button class="btn-action btn-history" onclick="openHistoryModal()">📋 自分の注文履歴を見る</button>
+        <button class="btn-action btn-history" id="btn-hist" onclick="openHistoryModal()">📋 ご注文履歴</button>
+    </div>
+    
+    <div id="menu-container">メニューを読み込み中...</div>
+    
+    <button class="btn-checkout" id="btn-out" onclick="openCheckoutModal()">退店する</button>
+
+    <!-- 退店・ダウンロード画面 -->
+    <div id="checkout-modal" class="modal-overlay">
+        <div class="modal-content" style="text-align: center;">
+            <div class="modal-title">退店・お会計</div>
+            <div style="font-size:14px; color:#ccc; margin-bottom:24px; line-height:1.6;">
+                本日はご来店ありがとうございました。<br><br>退店される前に、本日お飲みになったウイスキーの記録とテイスティングノートをご自身のスマホに保存できます。
+            </div>
+            
+            <button class="menu-btn highlight-item" onclick="downloadNotebook()" style="margin-bottom:20px; font-weight:bold; font-size:14px; padding: 16px;">
+                📥 本日のウイスキー手帳を保存する
+            </button>
+            
+            <button class="btn-checkout" onclick="confirmCheckout()" style="margin-top:0; margin-bottom: 10px;">
+                💳 マスターを呼んでお会計する
+            </button>
+            
+            <button class="btn-close-modal" onclick="document.getElementById('checkout-modal').style.display='none'">お席に戻る</button>
+        </div>
     </div>
 
-    <div id="menu-container">メニューを読み込み中...</div>
+    <!-- 用件別呼び出しダイアログ -->
+    <div id="call-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-title" id="lbl-call-title">ご用件をお選びください</div>
+            <div class="call-options">
+                <button class="menu-btn" onclick="executeCall('💧 チェイサー(お水)のおかわり')">💧 チェイサー(お水)のおかわり</button>
+                <button class="menu-btn" onclick="executeCall('🫧 炭酸水がほしい')">🫧 炭酸水がほしい</button>
+                <button class="menu-btn" onclick="executeCall('🧊 氷の追加・交換')">🧊 氷の追加・交換</button>
+                <button class="menu-btn" onclick="executeCall('🥂 グラスの交換')">🥂 グラスの交換</button>
+                <button class="menu-btn" onclick="executeCall('🗣️ その他（直接お伺いします）')">🗣️ その他（直接お伺いします）</button>
+            </div>
+            <button class="btn-close-modal" onclick="document.getElementById('call-modal').style.display='none'">閉じる</button>
+        </div>
+    </div>
 
-    <button class="btn-checkout" onclick="handleCheckout()">お席を終える（退店する）</button>
+    <!-- テイスティングノートモーダル -->
+    <div id="tasting-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-title" id="tasting-title">テイスティングノート</div>
+            <div class="tasting-desc" id="tasting-desc"></div>
+            <button class="btn-close-modal" onclick="document.getElementById('tasting-modal').style.display='none'">閉じる</button>
+        </div>
+    </div>
 
+    <!-- 履歴モーダル -->
     <div id="history-modal" class="modal-overlay">
         <div class="modal-content">
-            <div class="modal-title">本日のご注文履歴</div>
+            <div class="modal-title" id="lbl-hist-title">本日のご注文履歴</div>
             <div id="history-list">読み込み中...</div>
-            <button class="btn-close-modal" onclick="closeHistoryModal()">閉じる</button>
+            <button class="btn-close-modal" id="btn-close-hist" onclick="document.getElementById('history-modal').style.display='none'">閉じる</button>
         </div>
     </div>
 
@@ -86,37 +154,49 @@
         </div>
     </div>
 
+    <div id="toast-container"></div>
+
     <script>
         const supabaseUrl = 'https://sopgjigjqhtetmmmilpo.supabase.co';
         const supabaseKey = 'sb_publishable_j5J9WYL6xEue3WpLH50kQg_MumAICUP';
         const client = supabase.createClient(supabaseUrl, supabaseKey);
-
         const urlParams = new URLSearchParams(window.location.search);
         const customerId = urlParams.get('id');
 
-        if (!customerId) { showCustomAlert('顧客IDが指定されていません。'); }
+        let currentLang = 'ja';
+        const t = {
+            ja: { top: "トップ", balance: "現在の保有トークン", add: "＋ トークン追加", call: "🔔 マスターを呼ぶ", hist: "📋 ご注文履歴", out: "退店する", histTitle: "本日のご注文履歴", orderOk: "注文・確定する", processing: "処理中...", cost: "消費:", token: "トークン", msgWait: "マスターを呼び出しました。\n少々お待ちください。", msgOrder: "を注文しました！" },
+            en: { top: "Top", balance: "Current Tokens", add: "+ Add Tokens", call: "🔔 Call Master", hist: "📋 Order History", out: "Leave", histTitle: "Today's Orders", orderOk: "Confirm Order", processing: "Processing...", cost: "Cost:", token: "Tokens", msgWait: "Master has been called.\nPlease wait a moment.", msgOrder: "ordered successfully!" }
+        };
 
-        // ==========================================
-        // 【新機能】オリジナルダイアログの制御システム
-        // ==========================================
+        let globalMenuData = [];
+
+        function toggleLanguage() {
+            currentLang = currentLang === 'ja' ? 'en' : 'ja';
+            document.querySelector('.lang-toggle-btn').innerText = currentLang === 'ja' ? 'EN' : 'JA';
+            document.getElementById('lbl-balance').innerText = t[currentLang].balance;
+            document.getElementById('btn-add').innerText = t[currentLang].add;
+            document.getElementById('btn-call').innerText = t[currentLang].call;
+            document.getElementById('btn-hist').innerText = t[currentLang].hist;
+            document.getElementById('btn-out').innerText = t[currentLang].out;
+            document.getElementById('lbl-hist-title').innerText = t[currentLang].histTitle;
+            fetchMenu();
+        }
+
+        client.channel('custom-all-channel')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items' }, () => { fetchMenu(); })
+          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'customers', filter: `id=eq.${customerId}` }, () => { fetchBalance(); })
+          .subscribe();
+
         function showCustomConfirm(message, onConfirm) {
             const overlay = document.getElementById('custom-dialog-overlay');
             const btnCancel = document.getElementById('dialog-btn-cancel');
             const btnOk = document.getElementById('dialog-btn-ok');
-            
             document.getElementById('dialog-message').innerText = message;
-            btnCancel.style.display = 'block'; // キャンセルボタンを表示
-            btnOk.innerText = '注文・確定する';
-
-            // 古いイベント（前回のボタンの記憶）を消す魔法
-            const newBtnCancel = btnCancel.cloneNode(true);
-            const newBtnOk = btnOk.cloneNode(true);
-            btnCancel.parentNode.replaceChild(newBtnCancel, btnCancel);
-            btnOk.parentNode.replaceChild(newBtnOk, btnOk);
-
-            newBtnCancel.onclick = () => { overlay.style.display = 'none'; };
-            newBtnOk.onclick = () => { overlay.style.display = 'none'; onConfirm(); };
-
+            btnCancel.style.display = 'block'; 
+            btnOk.innerText = t[currentLang].orderOk;
+            btnCancel.onclick = () => overlay.style.display = 'none';
+            btnOk.onclick = () => { overlay.style.display = 'none'; onConfirm(); };
             overlay.style.display = 'flex';
         }
 
@@ -124,185 +204,274 @@
             const overlay = document.getElementById('custom-dialog-overlay');
             const btnCancel = document.getElementById('dialog-btn-cancel');
             const btnOk = document.getElementById('dialog-btn-ok');
-            
             document.getElementById('dialog-message').innerText = message;
-            btnCancel.style.display = 'none'; // Alertの時はキャンセルボタンを隠す
+            btnCancel.style.display = 'none'; 
             btnOk.innerText = '閉じる';
-
-            const newBtnOk = btnOk.cloneNode(true);
-            btnOk.parentNode.replaceChild(newBtnOk, btnOk);
-
-            newBtnOk.onclick = () => { overlay.style.display = 'none'; };
-
+            btnOk.onclick = () => overlay.style.display = 'none';
             overlay.style.display = 'flex';
         }
 
-        // ==========================================
-        // 以降の処理（nativeのalert/confirmをすべて置き換え）
-        // ==========================================
+        function showToast(message) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'toast'; toast.innerText = message;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
 
         async function fetchBalance() {
             const { data } = await client.from('customers').select('token_balance').eq('id', customerId).single();
-            if (data) document.getElementById('balance').innerText = data.token_balance;
-        }
-
-        function requestTokenPurchase() {
-            showCustomConfirm('マスターをテーブルに呼び出し、トークンを追加購入（現金払い）しますか？', async () => {
-                const { error } = await client.rpc('place_order', { p_customer_id: customerId, p_item_name: '💰 トークン追加購入（現金）', p_cost: 0 });
-                if (error) showCustomAlert('エラー: ' + error.message);
-                else showCustomAlert('マスターを呼び出しました。\n現金をご準備の上、少々お待ちください。');
-            });
-        }
-
-        function callMaster() {
-            showCustomConfirm('マスターをテーブルに呼び出しますか？', async () => {
-                const { error } = await client.rpc('place_order', { p_customer_id: customerId, p_item_name: '🔔 呼び出し（お水・追加等）', p_cost: 0 });
-                if (error) showCustomAlert('エラー: ' + error.message);
-                else showCustomAlert('マスターを呼び出しました。\n少々お待ちください。');
-            });
+            if (data) document.getElementById('balance').innerText = data.token_balance + ' T';
         }
 
         function openHistoryModal() { document.getElementById('history-modal').style.display = 'flex'; fetchHistory(); }
-        function closeHistoryModal() { document.getElementById('history-modal').style.display = 'none'; }
-
+        
         async function fetchHistory() {
-            // 【改修】「過去12時間以内」の注文だけを取得するように変更（バーの夜間営業対応）
-            const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+                    const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+                    const { data } = await client.from('order_history').select('item_name, token_cost, created_at').eq('customer_id', customerId).gte('created_at', twelveHoursAgo).order('created_at', { ascending: false });
+                    const listContainer = document.getElementById('history-list'); listContainer.innerHTML = '';
+                    
+                    if (!data || data.length === 0) {
+                        listContainer.innerHTML = `<div style="text-align:center; color:#777; margin-top:20px;">まだご注文はありません。</div>`;
+                        return;
+                    }
 
-            const { data, error } = await client.from('order_history')
-                .select('item_name, token_cost, created_at')
-                .eq('customer_id', customerId)
-                .gte('created_at', twelveHoursAgo) // ここが過去12時間フィルター
-                .order('created_at', { ascending: false });
-                
-            const listContainer = document.getElementById('history-list'); listContainer.innerHTML = '';
-            
-            if (error) { listContainer.innerHTML = '読み込みエラー'; return; }
-            if (data.length === 0) { listContainer.innerHTML = '<div style="text-align:center; color:#868e96; margin-top:20px;">まだご注文はありません。</div>'; return; }
-            
-            data.forEach(order => {
-                const itemDiv = document.createElement('div'); itemDiv.className = 'history-item';
-                const date = new Date(order.created_at);
-                const timeStr = date.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
-                itemDiv.innerHTML = `<div><span class="history-time">${timeStr}</span><span>${order.item_name}</span></div><div>${order.token_cost} T</div>`;
-                listContainer.appendChild(itemDiv);
+                    data.forEach(order => {
+                        const itemDiv = document.createElement('div'); 
+                        itemDiv.className = 'history-item';
+                        const timeStr = new Date(order.created_at).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+                        
+                        const menuItem = globalMenuData.find(m => m.item_name === order.item_name);
+                        const hasNote = menuItem && menuItem.description && menuItem.description.trim() !== "";
+                        
+                        // 左側の時間と商品名エリア
+                        const leftDiv = document.createElement('div');
+                        leftDiv.style.flex = "1";
+                        leftDiv.innerHTML = `<span style="color:#777; margin-right:8px;">${timeStr}</span>`;
+                        
+                        const nameSpan = document.createElement('span');
+                        nameSpan.innerText = hasNote ? order.item_name + " 📝" : order.item_name;
+                        
+                        if (hasNote) {
+                            nameSpan.className = "note-link";
+                            // プログラム的に直接クリックイベントを追加（改行エラーなどを完全に防ぐ）
+                            nameSpan.onclick = () => showTastingNote(order.item_name, menuItem.description);
+                        }
+                        leftDiv.appendChild(nameSpan);
+
+                        // 右側の金額エリア
+                        const rightDiv = document.createElement('div');
+                        rightDiv.style.whiteSpace = "nowrap";
+                        rightDiv.style.marginLeft = "10px";
+                        rightDiv.innerText = order.token_cost + " T";
+
+                        itemDiv.appendChild(leftDiv);
+                        itemDiv.appendChild(rightDiv);
+                        listContainer.appendChild(itemDiv);
+                    });
+                }
+
+        function openCallModal() { document.getElementById('call-modal').style.display = 'flex'; }
+        
+        async function executeCall(requestText) {
+            document.getElementById('call-modal').style.display = 'none';
+            const { error } = await client.rpc('place_order', { p_customer_id: customerId, p_item_name: `🔔 ${requestText}`, p_cost: 0 });
+            if (!error) showToast('🔔 ' + t[currentLang].msgWait);
+        }
+        
+        function requestTokenPurchase() {
+            showCustomConfirm('マスターをテーブルに呼び出し、トークンを追加購入（現金払い）しますか？', async () => {
+                await client.rpc('place_order', { p_customer_id: customerId, p_item_name: '💰 トークン追加購入', p_cost: 0 });
+                showToast('🔔 ' + t[currentLang].msgWait);
+            });
+        }
+        
+        // 退店フロー
+        function openCheckoutModal() {
+            document.getElementById('checkout-modal').style.display = 'flex';
+        }
+
+        function confirmCheckout() {
+            document.getElementById('checkout-modal').style.display = 'none';
+            showCustomConfirm('お席を終えて、お会計（退店）の準備をしますか？', async () => {
+                await client.rpc('place_order', { p_customer_id: customerId, p_item_name: '💳 お会計・退店のお願い', p_cost: 0 });
+                showToast('💳 ' + t[currentLang].msgWait);
             });
         }
 
-        function handleCheckout() {
-            showCustomConfirm('お席を終えて、お会計（退店）の準備をしますか？\n\n※マスターがテーブルへお伺いします。', async () => {
-                const { error } = await client.rpc('place_order', { p_customer_id: customerId, p_item_name: '💳 お会計・退店のお願い', p_cost: 0 });
-                if (error) showCustomAlert('エラー: ' + error.message);
-                else showCustomAlert('マスターにお会計を通知しました。\nそのままお待ちください。');
+        // 手帳ダウンロード機能
+        async function downloadNotebook() {
+            const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+            const { data } = await client.from('order_history')
+                .select('item_name, created_at')
+                .eq('customer_id', customerId)
+                .gte('created_at', twelveHoursAgo)
+                .order('created_at', { ascending: true }); // 飲んだ順番（時系列）
+
+            if (!data || data.length === 0) {
+                showCustomAlert('本日はまだウイスキーのご注文がありません。');
+                return;
+            }
+
+            let text = "=========================================\n";
+            text += "       Silent-Cask  Whisky Notebook\n";
+            text += "=========================================\n\n";
+            text += `来店日: ${new Date().toLocaleDateString('ja-JP')}\n\n`;
+
+            let drinkCount = 1;
+            data.forEach(order => {
+                // 呼び出しや会計などのシステムログはテキストから除外
+                if (order.item_name.startsWith('🔔') || order.item_name.startsWith('💰') || order.item_name.startsWith('💳')) return;
+
+                const timeStr = new Date(order.created_at).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+                text += `[${drinkCount}杯目] ${timeStr}\n`;
+                text += `🥃 ${order.item_name}\n`;
+                
+                const menuItem = globalMenuData.find(m => m.item_name === order.item_name);
+                if (menuItem && menuItem.description) {
+                    text += `\n${menuItem.description}\n`;
+                } else {
+                    text += `\n(テイスティングノート未登録)\n`;
+                }
+                text += `\n-----------------------------------------\n\n`;
+                drinkCount++;
             });
+
+            if(drinkCount === 1) {
+                showCustomAlert('本日はまだウイスキーのご注文がありません。');
+                return;
+            }
+
+            text += "本日はご来店ありがとうございました。\nまたのお越しを心よりお待ちしております。\n";
+            text += "Silent-Cask\n";
+
+            // テキストファイルとしてダウンロード
+            const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Silent-Cask_ウイスキー手帳_${new Date().toISOString().split('T')[0]}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showToast("📥 手帳をダウンロードしました");
+        }
+
+        function showTastingNote(itemName, description) {
+            document.getElementById('tasting-title').innerText = itemName;
+            document.getElementById('tasting-desc').innerText = description || "（詳細なテイスティングノートは現在準備中です）";
+            document.getElementById('tasting-modal').style.display = 'flex';
         }
 
         async function fetchMenu() {
-            const { data, error } = await client.from('menu_items')
-                .select('*')
-                .order('token_cost', { ascending: true })
-                .order('item_name', { ascending: true });
+            const { data } = await client.from('menu_items').select('*').order('token_cost', { ascending: true }).order('item_name', { ascending: true });
+            globalMenuData = data || []; 
+            
+            const container = document.getElementById('menu-container'); 
+            const navContainer = document.getElementById('category-nav');
+            container.innerHTML = ''; navContainer.innerHTML = '';
+            if(!data) return;
 
-            const container = document.getElementById('menu-container');
-            container.innerHTML = ''; 
-
-            if(error) return;
+            // 【追加】トップに戻るボタン
+            const topBtn = document.createElement('button');
+            topBtn.className = 'nav-btn';
+            topBtn.innerText = t[currentLang].top;
+            topBtn.onclick = () => window.scrollTo({top: 0, behavior: 'smooth'});
+            navContainer.appendChild(topBtn);
 
             const groupedMenu = {};
             data.forEach(item => {
-                const cat = item.category || 'その他';
-                const subCat = item.sub_category || ''; 
-                
-                if (!groupedMenu[cat]) { groupedMenu[cat] = {}; }
-                if (!groupedMenu[cat][subCat]) { groupedMenu[cat][subCat] = []; }
-                
+                const cat = item.category || 'その他'; const subCat = item.sub_category || ''; 
+                if (!groupedMenu[cat]) groupedMenu[cat] = {};
+                if (!groupedMenu[cat][subCat]) groupedMenu[cat][subCat] = [];
                 groupedMenu[cat][subCat].push(item);
             });
 
-            const categoryOrder = [
-                "スコッチウイスキー",
-                "ジャパニーズウイスキー",
-                "アメリカンウイスキー",
-                "アイリッシュウイスキー",
-                "カナディアンウイスキー",
-                "台湾 ＆ ワールドブレンド",
-                "その他"
-            ];
+            const categoryOrder = ["スコッチウイスキー", "ジャパニーズウイスキー", "アメリカンウイスキー", "アイリッシュウイスキー", "カナディアンウイスキー", "台湾 ＆ ワールドブレンド", "その他"];
+            Object.keys(groupedMenu).sort((a, b) => {
+                let indexA = categoryOrder.indexOf(a); let indexB = categoryOrder.indexOf(b);
+                if (indexA === -1) indexA = 999; if (indexB === -1) indexB = 999; return indexA - indexB;
+            }).forEach(category => {
+                const catId = 'cat-' + category.replace(/\s+/g, '-');
+                const catHeading = document.createElement('div'); catHeading.id = catId; catHeading.className = 'category-heading';
+                catHeading.innerText = category; container.appendChild(catHeading);
 
-            const sortedCategories = Object.keys(groupedMenu).sort((a, b) => {
-                let indexA = categoryOrder.indexOf(a);
-                let indexB = categoryOrder.indexOf(b);
-                if (indexA === -1) indexA = 999;
-                if (indexB === -1) indexB = 999;
-                return indexA - indexB;
-            });
-
-            sortedCategories.forEach(category => {
-                const catHeading = document.createElement('div');
-                catHeading.className = 'category-heading';
-                catHeading.innerText = category;
-                container.appendChild(catHeading);
+                const navBtn = document.createElement('button'); navBtn.className = 'nav-btn';
+                navBtn.innerText = category.replace('ウイスキー', '').replace(' ＆ ワールドブレンド', '');
+                navBtn.onclick = () => window.scrollTo({top: catHeading.getBoundingClientRect().top + window.pageYOffset - 60, behavior: 'smooth'});
+                navContainer.appendChild(navBtn);
 
                 const subCats = groupedMenu[category];
-                
-                const sortedSubCats = Object.keys(subCats).sort((a, b) => {
-                    const aIsOthers = a.includes('その他');
-                    const bIsOthers = b.includes('老化');
-                    const aCheck = aIsOthers || a.includes('その他');
-                    const bCheck = bIsOthers || b.includes('その他');
-                    if (aCheck && !bCheck) return 1;
-                    if (!aCheck && bCheck) return -1;
-                    return a.localeCompare(b, 'ja'); 
-                });
-
-                sortedSubCats.forEach(subCat => {
+                Object.keys(subCats).sort((a, b) => a.includes('その他') ? 1 : b.includes('その他') ? -1 : a.localeCompare(b, 'ja')).forEach(subCat => {
                     if (subCat !== '') {
-                        const subHeading = document.createElement('div');
-                        subHeading.className = 'sub-category-heading';
-                        subHeading.innerText = `🥃 ${subCat}`;
-                        container.appendChild(subHeading);
+                        const subHeading = document.createElement('div'); subHeading.className = 'sub-category-heading';
+                        subHeading.innerText = `🥃 ${subCat}`; container.appendChild(subHeading);
                     }
-
-                    let currentTokenCost = undefined;
-                    let currentGrid = null;
-
+                    let currentTokenCost = undefined; let currentGrid = null;
                     subCats[subCat].forEach(item => {
-                        const cost = (item.token_cost !== null && item.token_cost !== undefined) ? item.token_cost : 0;
-                        const isSoldOut = item.is_sold_out;
-
+                        const cost = item.token_cost || 0;
                         if (cost !== currentTokenCost || !currentGrid) {
                             currentTokenCost = cost;
-                            const tokenHeading = document.createElement('div');
-                            tokenHeading.className = 'token-heading';
-                            tokenHeading.innerText = cost === 0 ? `価格未設定` : `${cost} トークン`;
+                            const tokenHeading = document.createElement('div'); tokenHeading.className = 'token-heading';
+                            tokenHeading.innerText = cost === 0 ? `Price not set` : `${cost} ${t[currentLang].token}`;
                             container.appendChild(tokenHeading);
-
-                            currentGrid = document.createElement('div');
-                            currentGrid.className = 'menu-grid';
+                            currentGrid = document.createElement('div'); currentGrid.className = 'menu-grid';
                             container.appendChild(currentGrid);
                         }
-                        
-                        const btn = document.createElement('button');
-                        btn.className = isSoldOut ? 'menu-btn sold-out' : 'menu-btn';
-                        btn.innerText = item.item_name; 
-                        
-                        if (!isSoldOut) {
-                            // 【変更】ネイティブのconfirmをオリジナルダイアログに変更
-                            btn.onclick = () => orderItem(item.item_name, cost);
-                        }
-                        
-                        currentGrid.appendChild(btn);
+                        currentGrid.appendChild(createMenuButton(item));
                     });
                 });
             });
         }
 
-        function orderItem(itemName, cost) {
-            showCustomConfirm(`【${itemName}】\nを注文しますか？\n\n（消費: ${cost}トークン）`, async () => {
-                const { data, error } = await client.rpc('place_order', { p_customer_id: customerId, p_item_name: itemName, p_cost: cost });
-                if (error) { showCustomAlert('エラー: ' + error.message); } 
-                else { showCustomAlert(data); }
-                fetchBalance(); 
+        function createMenuButton(item) {
+            const cost = item.token_cost || 0;
+            const btn = document.createElement('button');
+            
+            let classes = ['menu-btn'];
+            if (item.is_sold_out) {
+                classes.push('sold-out');
+            } else if (item.is_recommended) {
+                classes.push('recommended');
+            }
+            
+            btn.className = classes.join(' ');
+            btn.innerText = item.item_name;
+            
+            let pressTimer;
+            let isLongPress = false;
+
+            btn.onpointerdown = (e) => {
+                isLongPress = false;
+                pressTimer = setTimeout(() => {
+                    isLongPress = true;
+                    showTastingNote(item.item_name, item.description);
+                }, 600);
+            };
+            btn.onpointerup = () => clearTimeout(pressTimer);
+            btn.onpointerleave = () => clearTimeout(pressTimer);
+            btn.oncontextmenu = (e) => e.preventDefault();
+
+            if (!item.is_sold_out) {
+                btn.onclick = function(e) {
+                    if (isLongPress) { e.preventDefault(); return; }
+                    orderItem(item.item_name, cost, this);
+                };
+            }
+            return btn;
+        }
+
+        async function orderItem(itemName, cost, btnElement) {
+            showCustomConfirm(`【${itemName}】\n\n${t[currentLang].cost} ${cost} ${t[currentLang].token}`, async () => {
+                const originalText = btnElement.innerText;
+                btnElement.innerText = t[currentLang].processing; btnElement.disabled = true;
+                const { error } = await client.rpc('place_order', { p_customer_id: customerId, p_item_name: itemName, p_cost: cost });
+                if (error) showCustomAlert('Error: ' + error.message); 
+                else showToast(currentLang === 'ja' ? `🥃 ${itemName} ${t.ja.msgOrder}` : `🥃 ${itemName} ${t.en.msgOrder}`);
+                await fetchBalance(); 
+                btnElement.innerText = originalText; btnElement.disabled = false;
             });
         }
 

@@ -67,7 +67,7 @@
 
     <div id="admin-content">
         <h2>BAR 管理コントロール</h2>
-        
+
         <div class="section-title">🛎️ 現在のオーダー（未提供）</div>
         <div id="order-monitor-container">
             <div id="no-orders">現在、未提供のオーダーはありません。</div>
@@ -249,70 +249,79 @@
             if (menuVisible) fetchAdminMenu();
         }
 
-        // 【大幅改修】在庫管理リストの並び順をお客様画面（index.html）と同期
-        async function fetchAdminMenu() {
-            // category データも一緒に取得するように変更
-            const { data, error } = await client.from('menu_items')
-                .select('id, item_name, category, is_sold_out')
-                .order('item_name', { ascending: true }); // ベースは名前順
+        // 【大幅改修】在庫管理リストにおすすめ（ハイライト）設定を追加
+                async function fetchAdminMenu() {
+                    const { data, error } = await client.from('menu_items')
+                        .select('id, item_name, category, is_sold_out, is_recommended') // is_recommended を追加
+                        .order('item_name', { ascending: true }); 
 
-            const container = document.getElementById('admin-menu-list'); 
-            container.innerHTML = '';
-            if (error) return;
+                    const container = document.getElementById('admin-menu-list'); 
+                    container.innerHTML = '';
+                    if (error) return;
 
-            // 1. カテゴリごとにグループ分け
-            const groupedMenu = {};
-            data.forEach(item => {
-                const cat = item.category || 'その他';
-                if (!groupedMenu[cat]) { groupedMenu[cat] = []; }
-                groupedMenu[cat].push(item);
-            });
+                    const groupedMenu = {};
+                    data.forEach(item => {
+                        const cat = item.category || 'その他';
+                        if (!groupedMenu[cat]) { groupedMenu[cat] = []; }
+                        groupedMenu[cat].push(item);
+                    });
 
-            // 2. お客様画面と同じ並び順ルール
-            const categoryOrder = [
-                "スコッチウイスキー",
-                "ジャパニーズウイスキー",
-                "アメリカンウイスキー",
-                "アイリッシュウイスキー",
-                "カナディアンウイスキー",
-                "台湾 ＆ ワールドブレンド",
-                "その他"
-            ];
+                    const categoryOrder = ["スコッチウイスキー", "ジャパニーズウイスキー", "アメリカンウイスキー", "アイリッシュウイスキー", "カナディアンウイスキー", "台湾 ＆ ワールドブレンド", "その他"];
+                    const sortedCategories = Object.keys(groupedMenu).sort((a, b) => {
+                        let indexA = categoryOrder.indexOf(a); let indexB = categoryOrder.indexOf(b);
+                        if (indexA === -1) indexA = 999; if (indexB === -1) indexB = 999; return indexA - indexB;
+                    });
 
-            // 3. ルールに従ってソート
-            const sortedCategories = Object.keys(groupedMenu).sort((a, b) => {
-                let indexA = categoryOrder.indexOf(a);
-                let indexB = categoryOrder.indexOf(b);
-                if (indexA === -1) indexA = 999;
-                if (indexB === -1) indexB = 999;
-                return indexA - indexB;
-            });
+                    sortedCategories.forEach(category => {
+                        const catHeader = document.createElement('div');
+                        catHeader.className = 'admin-category-heading';
+                        catHeader.innerText = `🥃 ${category}`;
+                        container.appendChild(catHeader);
 
-            // 4. カテゴリ見出しを付けながら描画
-            sortedCategories.forEach(category => {
-                const catHeader = document.createElement('div');
-                catHeader.className = 'admin-category-heading';
-                catHeader.innerText = `🥃 ${category}`;
-                container.appendChild(catHeader);
+                        groupedMenu[category].forEach(item => {
+                            const div = document.createElement('div'); 
+                            div.className = 'menu-mgmt-item';
+                            
+                            const nameSpan = document.createElement('span'); 
+                            nameSpan.innerText = item.item_name;
+                            nameSpan.style.flex = "1";
+                            
+                            // おすすめ設定ボタン
+                            const btnRecommend = document.createElement('button');
+                            btnRecommend.innerText = item.is_recommended ? '解除' : 'おすすめ';
+                            btnRecommend.className = item.is_recommended ? 'btn-status' : 'btn-status';
+                            btnRecommend.style.backgroundColor = item.is_recommended ? '#fcc419' : '#495057';
+                            btnRecommend.style.color = item.is_recommended ? '#121212' : '#fff';
+                            btnRecommend.style.marginRight = '8px';
+                            btnRecommend.onclick = () => toggleRecommend(item.id, item.item_name, item.is_recommended);
 
-                groupedMenu[category].forEach(item => {
-                    const div = document.createElement('div'); 
-                    div.className = 'menu-mgmt-item';
-                    
-                    const nameSpan = document.createElement('span'); 
-                    nameSpan.innerText = item.item_name;
-                    
-                    const btn = document.createElement('button');
-                    btn.innerText = item.is_sold_out ? '🔴 売切' : '🟢 販売中';
-                    btn.className = item.is_sold_out ? 'btn-status btn-stock-off' : 'btn-status btn-stock-on';
-                    btn.onclick = () => toggleStock(item.id, item.item_name, item.is_sold_out);
-                    
-                    div.appendChild(nameSpan); 
-                    div.appendChild(btn); 
-                    container.appendChild(div);
-                });
-            });
-        }
+                            // 売切設定ボタン
+                            const btnStock = document.createElement('button');
+                            btnStock.innerText = item.is_sold_out ? '🔴 売切' : '🟢 販売中';
+                            btnStock.className = item.is_sold_out ? 'btn-status btn-stock-off' : 'btn-status btn-stock-on';
+                            btnStock.onclick = () => toggleStock(item.id, item.item_name, item.is_sold_out);
+                            
+                            div.appendChild(nameSpan); 
+                            div.appendChild(btnRecommend);
+                            div.appendChild(btnStock); 
+                            container.appendChild(div);
+                        });
+                    });
+                }
+
+                async function toggleStock(id, name, isSoldOut) {
+                    const newStatus = !isSoldOut;
+                    if (!confirm(newStatus ? `${name} を【売切】にしますか？` : `${name} を【販売中】に戻しますか？`)) return;
+                    const { error } = await client.from('menu_items').update({ is_sold_out: newStatus }).eq('id', id);
+                    if (!error) fetchAdminMenu(); else alert('エラー: ' + error.message);
+                }
+
+                async function toggleRecommend(id, name, isRecommended) {
+                    const newStatus = !isRecommended;
+                    if (!confirm(newStatus ? `${name} を【おすすめ】に設定しますか？` : `${name} のおすすめ設定を解除しますか？`)) return;
+                    const { error } = await client.from('menu_items').update({ is_recommended: newStatus }).eq('id', id);
+                    if (!error) fetchAdminMenu(); else alert('エラー: ' + error.message);
+                }
 
         async function toggleStock(id, name, isSoldOut) {
             const newStatus = !isSoldOut;
@@ -320,6 +329,38 @@
             const { error } = await client.from('menu_items').update({ is_sold_out: newStatus }).eq('id', id);
             if (!error) fetchAdminMenu(); else alert('エラー: ' + error.message);
         }
+
+        // ==========================================
+        // 【新機能】新着オーダー時のチャイム音通知
+        // ==========================================
+        function playChime() {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            function playTone(freq, startTime, duration) {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = 'sine';
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(0, startTime);
+                gain.gain.linearRampToValueAtTime(0.1, startTime + 0.01);
+                gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration); // 長い余韻
+                osc.start(startTime);
+                osc.stop(startTime + duration);
+            }
+            // 非常に高い「ド」と「ミ」を同時に鳴らし、グラスの響きを表現
+            playTone(2093.00, ctx.currentTime, 2.0); 
+            playTone(2637.02, ctx.currentTime, 2.0); 
+        }
+
+        // データベースの「注文履歴」が追加された瞬間にチャイムを鳴らして画面を更新する
+        client.channel('admin-order-alert')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'order_history' }, payload => {
+                playChime();
+                // ※もし管理画面の注文一覧を更新する関数が fetchOrders() ではない場合は、ここを書き換えてください
+                if (typeof fetchOrders === 'function') fetchOrders(); 
+            })
+            .subscribe();
     </script>
 </body>
 </html>
